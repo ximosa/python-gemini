@@ -92,7 +92,6 @@ class Chat:
         dates = self.cursor.fetchall()
         return [date[0].split(' ')[0] for date in dates]
 
-
     def get_history(self):
       self.cursor.execute("SELECT speaker, message FROM chat_history")
       return self.cursor.fetchall()
@@ -109,7 +108,7 @@ def generate_response(prompt, chat_history, custom_prompt):
         for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
-        full_prompt += f"{custom_prompt}\n"
+        full_prompt += " Si te pido código, genera solo el código, y delimítalo usando ```html para HTML, ```python para Python etc. \n"
         print("Prompt generado:", full_prompt)
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
@@ -140,22 +139,24 @@ with col1:
 
     # --- Lógica del chat ---
     if user_input:
-      chat.add_message("Usuario", user_input)
-      # Generar respuesta con contexto
-      generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
-      print("Texto generado:", generated_text)
-      chat.add_message("Assistant", generated_text)
+        chat.add_message("Usuario", user_input)
+        # Generar respuesta con contexto
+        generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
+        print("Texto generado:", generated_text)
+        chat.add_message("Assistant", generated_text)
 
-      # Mostrar la respuesta
-      with st.chat_message("assistant"):
-        if is_code(generated_text):
-            formatted_code = format_code(generated_text)
-            if formatted_code:
-               st.markdown(formatted_code, unsafe_allow_html=True)
+         # Mostrar la respuesta
+        with st.chat_message("assistant"):
+            if is_code(generated_text):
+                formatted_code = format_code(generated_text)
+                if formatted_code:
+                    st.markdown(formatted_code, unsafe_allow_html=True)
+                else:
+                    st.write(generated_text)
             else:
-               st.write(generated_text)
-        else:
-            st.write(generated_text)
+                st.write(generated_text)
+
+
 with col2:
     st.subheader("Historial del chat")
     dates = chat.get_all_dates()
@@ -163,14 +164,13 @@ with col2:
     if selected_date:
       history = chat.get_history_by_date(selected_date)
       for speaker, message in history:
-         with st.chat_message(speaker.lower()):
-           if is_code(message):
-              formatted_code = format_code(message)
-              if formatted_code:
-                  st.markdown(formatted_code, unsafe_allow_html=True)
+          with st.chat_message(speaker.lower()):
+              if is_code(message):
+                formatted_code = format_code(message)
+                if formatted_code:
+                    st.markdown(formatted_code, unsafe_allow_html=True)
+                else:
+                    st.write(message)
               else:
-                 st.write(message)
-           else:
-               st.write(message)
-
+                st.write(message)
 chat.close()
