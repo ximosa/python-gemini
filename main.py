@@ -6,6 +6,7 @@ from pygments import highlight
 from pygments.lexers import get_lexer_by_name, guess_lexer
 from pygments.formatters import HtmlFormatter
 from datetime import datetime
+import pyperclip
 
 # --- Configuración de la API ---
 API_KEY = st.secrets["API_KEY"]
@@ -156,11 +157,11 @@ class Chat:
           self.cursor.execute(f"SELECT message FROM chat_{chat_id} ORDER BY id ASC LIMIT 1")
           first_message = self.cursor.fetchone()
           if first_message:
-              self._close()
-              return first_message[0]
+            self._close()
+            return first_message[0]
           else:
-              self._close()
-              return "Nuevo Chat"
+             self._close()
+             return "Nuevo Chat"
       except sqlite3.OperationalError:
           self._close()
           return "Nuevo Chat"
@@ -236,7 +237,7 @@ with st.sidebar:
     if all_chats:
         for chat_name, chat_id in all_chats:
             first_message = chat.get_first_message(chat_id)
-            col1, col2 = st.columns([0.8,0.2])
+            col1, col2 = st.columns([0.7,0.3])
             with col1:
                 if st.button(first_message, key = chat_id):
                     st.session_state['selected_chat_id'] = chat_id
@@ -270,9 +271,13 @@ if user_input:
         if is_code(generated_text):
              formatted_code = format_code(generated_text)
              if formatted_code:
-                st.markdown(formatted_code, unsafe_allow_html=True, ) #Renderiza el HTML de forma segura
+                 st.markdown(formatted_code, unsafe_allow_html=True)
              else:
-                st.write(generated_text)
+                st.code(generated_text, language=None)
+                if st.button("Copiar", key=f"copy_{st.session_state['selected_chat_id']}"):
+                    pyperclip.copy(generated_text)
+                    st.success("Código copiado al portapapeles!", icon="✅")
+                
         else:
             st.write(generated_text)
 
@@ -282,9 +287,12 @@ for speaker, message in chat.get_history():
       if is_code(message):
           formatted_code = format_code(message)
           if formatted_code:
-            st.markdown(formatted_code, unsafe_allow_html=True) #Renderiza el HTML de forma segura en el historial
+            st.markdown(formatted_code, unsafe_allow_html=True)
           else:
-            st.write(message)
+            st.code(message, language=None)
+            if st.button("Copiar", key=f"copy_historial{message}"):
+               pyperclip.copy(message)
+               st.success("Código copiado al portapapeles!", icon="✅")
       else:
         st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
