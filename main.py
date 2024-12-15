@@ -27,7 +27,6 @@ if 'selected_model' not in st.session_state:
         st.stop()
 
 try:
-    # Corrección: cerrar el paréntesis del index
     selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index=model_options.index(st.session_state['selected_model']))
     st.session_state['selected_model'] = selected_model_name
 except Exception as e:
@@ -87,13 +86,7 @@ class Chat:
     def get_all_chats(self):
          self.cursor.execute("SELECT name, id FROM chats")
          return self.cursor.fetchall()
-    def get_history_by_date(self, date):
-        self.cursor.execute("SELECT speaker, message FROM chat_history WHERE date LIKE ?", (f"{date}%",))
-        return self.cursor.fetchall()
-    def get_all_dates(self):
-        self.cursor.execute("SELECT DISTINCT date FROM chat_history")
-        dates = self.cursor.fetchall()
-        return [date[0].split(' ')[0] for date in dates]
+    
     def get_history(self):
       self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
       return self.cursor.fetchall()
@@ -137,22 +130,24 @@ def generate_response(prompt, chat_history, custom_prompt):
 
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
+
 # Inicializamos el chat como un objeto
 if 'chat' not in st.session_state:
     st.session_state['chat'] = Chat()
 chat = st.session_state['chat']
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
+
 # --- Layout de la interfaz ---
 with st.sidebar:
     st.header("Chats")
     all_chats = chat.get_all_chats()
     if all_chats:
         for chat_name, chat_id in all_chats:
-            if st.button(chat_name, key = chat_id):
+            if st.button(chat_name, key=f"chat_{chat_id}"):
                 st.session_state['selected_chat_id'] = chat_id
                 st.session_state['selected_chat_name'] = chat_name
-            if st.button(f"Eliminar {chat_name}", key = f"delete_{chat_id}"):
+            if st.button(f"Eliminar {chat_name}", key=f"delete_{chat_id}"):
                 chat.delete_chat(chat_id)
                 st.rerun()
         if st.button("Nuevo Chat"):
@@ -161,8 +156,10 @@ with st.sidebar:
         if st.button("Nuevo Chat"):
             chat.add_chat("Chat 1")
 
+
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
+
 
 # Lógica del chat
 if user_input:
@@ -179,8 +176,10 @@ if user_input:
 for speaker, message in chat.get_history():
     with st.chat_message(speaker):
         st.write(message)
+
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
     st.header(f"Chat: {st.session_state['selected_chat_name']}")
+
 
 # Cerrar la conexión a la base de datos al final
 chat.close()
