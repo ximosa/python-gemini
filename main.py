@@ -65,17 +65,42 @@ def is_code(text):
         return True
     except:
         return False
+
 # --- Clase Chat ---
 class Chat:
-    def __init__(self):
-       if 'chat_history' not in st.session_state:
-         st.session_state['chat_history'] = []
-       self.history = st.session_state['chat_history']
+    def __init__(self, db_path="chat_history.db"):
+        self.db_path = db_path
+        self.conn = sqlite3.connect(self.db_path)
+        self.cursor = self.conn.cursor()
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS chat_history (
+                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                  date TEXT,
+                                  speaker TEXT,
+                                  message TEXT
+                            )""")
+        self.conn.commit()
+
     def add_message(self, speaker, message):
-        self.history.append((speaker, message))
-        print("Historial del chat actualizado:", self.history)
+         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+         self.cursor.execute("INSERT INTO chat_history (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
+         self.conn.commit()
+
+    def get_history_by_date(self, date):
+        self.cursor.execute("SELECT speaker, message FROM chat_history WHERE date LIKE ?", (f"{date}%",))
+        return self.cursor.fetchall()
+    def get_all_dates(self):
+        self.cursor.execute("SELECT DISTINCT date FROM chat_history")
+        dates = self.cursor.fetchall()
+        return [date[0].split(' ')[0] for date in dates]
+
     def get_history(self):
-      return self.history
+      self.cursor.execute("SELECT speaker, message FROM chat_history")
+      return self.cursor.fetchall()
+    def delete_message(self, id):
+      self.cursor.execute("DELETE FROM chat_history WHERE id=?", (id,))
+      self.conn.commit()
+    def close(self):
+        self.conn.close()
 
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
@@ -107,30 +132,39 @@ chat = Chat()
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
+col1, col2 = st.columns([3, 1])
 
-# Área de entrada de texto
-user_input = st.chat_input("Escribe tu mensaje aquí:")
+with col1:
+    # Área de entrada de texto
+    user_input = st.chat_input("Escribe tu mensaje aquí:")
 
-# --- Lógica del chat ---
-if user_input:
-    chat.add_message("Usuario", user_input)
-    # Generar respuesta con contexto
-    generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
-    print("Texto generado:", generated_text)
-    chat.add_message("Assistant", generated_text)
-
-    # Mostrar la respuesta
-    with st.chat_message("assistant"):
-        if is_code(generated_text):
-             formatted_code = format_code(generated_text)
-             if formatted_code:
-                st.markdown(formatted_code, unsafe_allow_html=True)
+    # --- Lógica del chat ---
+    if user_input:
+        chat.add_message("Usuario", user_input)
+        # Generar respuesta con contexto
+        generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
+        print("Texto generado:", generated_text)
+        chat.add_message("Assistant", generated_text)
+        with st.chat_message("assistant"):
+             if is_code(generated_text):
+                formatted_code = format_code(generated_text)
+                if formatted_code:
+                    st.markdown(formatted_code, unsafe_allow_html=True)
+                else:
+                    st.write(generated_text)
              else:
                 st.write(generated_text)
-        else:
-             st.write(generated_text)
 
-# Visualizar el historial del chat
-for speaker, message in chat.get_history():
-   with st.chat_message(speaker.lower()):
-       st.write(message)
+with col2:
+    st.subheader("Historial del chat")
+    dates = chat.get_all_dates()
+    selected_date = st.sidebar.selectbox("Selecciona una fecha:", dates) if dates else None
+    if selected_date:
+      history = chat.get_history_by_date(selected_date)
+      for id, (speaker, message) in enumerate(history):
+         with st.chat_message(speaker.lower()):
+           st.write(message)
+           if st.button("Eliminar", key=f"delete_{id}"):
+            chat.delete_message(id+1)
+            st.experimental_rerun()
+chat.close()
