@@ -19,15 +19,16 @@ model_options = [m.name for m in available_models if 'generateContent' in m.supp
 
 if 'selected_model' not in st.session_state:
     if 'gemini-pro' in model_options:
-      st.session_state['selected_model'] = 'gemini-pro'
+        st.session_state['selected_model'] = 'gemini-pro'
     elif model_options:
-      st.session_state['selected_model'] = model_options[0]
+        st.session_state['selected_model'] = model_options[0]
     else:
         st.error("No se encontró ningún modelo válido para la API")
         st.stop()
 
 try:
-    selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model'])
+    # Corrección: cerrar el paréntesis del index
+    selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index=model_options.index(st.session_state['selected_model']))
     st.session_state['selected_model'] = selected_model_name
 except Exception as e:
     st.error(f"Ocurrió un error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
@@ -183,4 +184,3 @@ if st.session_state['selected_chat_id'] is not None and st.session_state['select
 
 # Cerrar la conexión a la base de datos al final
 chat.close()
-
