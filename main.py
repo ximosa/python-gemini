@@ -28,6 +28,16 @@ else:
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
 
+# --- Clase Chat  ---
+class Chat:
+    def __init__(self):
+       self.history = st.session_state['chat_history']
+    def add_message(self, speaker, message):
+        self.history.append((speaker, message))
+        print("Historial del chat actualizado:", self.history)
+    def get_history(self):
+      return self.history
+
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history):
   """Genera texto con el modelo Gemini, incluyendo el contexto de la conversación."""
@@ -53,39 +63,21 @@ def generate_response(prompt, chat_history):
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
 
+# Inicializamos el chat como un objeto
+chat = Chat()
+
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:")
 
 # --- Lógica del chat ---
 if user_input:
-    st.session_state['chat_history'].append(("Usuario", user_input))
-    print("Historial del chat actualizado:", st.session_state['chat_history'])
-
+    chat.add_message("Usuario", user_input)
     # Generar respuesta con contexto
-    generated_text = generate_response(user_input, st.session_state['chat_history'])
-    print("Texto generado:", generated_text)
-    st.session_state['chat_history'].append(("Assistant", generated_text))
-
-# Visualizar el historial del chat
-for speaker, message in st.session_state['chat_history']:
-    with st.chat_message(speaker.lower()):
-        st.write(message)
-
-    # Generar respuesta con contexto
-    generated_text = gemini_api.generate_response(user_input, chat.get_history())
+    generated_text = generate_response(user_input, chat.get_history())
     print("Texto generado:", generated_text)
     chat.add_message("Assistant", generated_text)
-    # Mostrar la respuesta
-    with st.chat_message("assistant"):
-        if user_input.lower().startswith("genera código") or user_input.lower().startswith("code") or is_code(generated_text):
-             st.code(generated_text, language="python")
-        else:
-            st.write(generated_text)
 
 # Visualizar el historial del chat
 for speaker, message in chat.get_history():
-   with st.chat_message(speaker.lower()):
-      if is_code(message):
-         st.code(message, language="python")
-      else:
+    with st.chat_message(speaker.lower()):
         st.write(message)
