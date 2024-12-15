@@ -131,6 +131,13 @@ class Chat:
       self.conn.commit()
       st.session_state['selected_chat_id'] = None
       st.session_state['selected_chat_name'] = None
+    
+    def get_first_message(self,chat_id):
+      self.cursor.execute(f"SELECT message FROM chat_{chat_id} ORDER BY id ASC LIMIT 1")
+      first_message = self.cursor.fetchone()
+      if first_message:
+          return first_message[0]
+      return "Nuevo Chat"
 
 
 # --- Función para generar respuesta ---
@@ -170,24 +177,31 @@ with st.sidebar:
     all_chats = chat.get_all_chats()
     if all_chats:
         for chat_name, chat_id in all_chats:
-            if st.button(chat_name, key = chat_id):
-                st.session_state['selected_chat_id'] = chat_id
-                st.session_state['selected_chat_name'] = chat_name
+            first_message = chat.get_first_message(chat_id)
+            col1, col2 = st.columns([0.8,0.2])
+            with col1:
+                if st.button(first_message, key = chat_id):
+                    st.session_state['selected_chat_id'] = chat_id
+                    st.session_state['selected_chat_name'] = first_message
+            with col2:
+                if st.button("x", key=f"delete_{chat_id}"):
+                    chat.delete_chat(chat_id)
+                    st.rerun()
         if st.button("Nuevo Chat"):
-          chat.add_chat(f"Chat {len(all_chats)+1}")
+          chat.add_chat(f"Nuevo Chat")
     else:
         if st.button("Nuevo Chat"):
-            chat.add_chat("Chat 1")
-    if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_id'] !=1:
-        if st.button("Eliminar Chat"):
-          chat.delete_chat(st.session_state['selected_chat_id'])
-          st.rerun()
+            chat.add_chat("Nuevo Chat")
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
 # --- Lógica del chat ---
 if user_input:
-    chat.add_message("Usuario", user_input)
+    if st.session_state['selected_chat_name'] == "Nuevo Chat":
+      chat.delete_chat(st.session_state['selected_chat_id'])
+      chat.add_chat(user_input)
+    else:
+      chat.add_message("Usuario", user_input)
     # Generar respuesta con contexto
     generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
     print("Texto generado:", generated_text)
