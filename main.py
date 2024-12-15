@@ -162,9 +162,25 @@ chat = st.session_state['chat']
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
-
+with st.sidebar:
+    st.header("Chats")
+    all_chats = chat.get_all_chats()
+    if all_chats:
+        for chat_name, chat_id in all_chats:
+            if st.button(chat_name, key = chat_id):
+                st.session_state['selected_chat_id'] = chat_id
+                st.session_state['selected_chat_name'] = chat_name
+        if st.button("Nuevo Chat"):
+          chat.add_chat(f"Chat {len(all_chats)+1}")
+    else:
+        if st.button("Nuevo Chat"):
+            chat.add_chat("Chat 1")
+    if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_id'] !=1:
+        if st.button("Eliminar Chat"):
+          chat.delete_chat(st.session_state['selected_chat_id'])
+          st.rerun()
 # Área de entrada de texto
-user_input = st.chat_input("Escribe tu mensaje aquí:")
+user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
 # --- Lógica del chat ---
 if user_input:
@@ -189,5 +205,6 @@ if user_input:
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
        st.write(message)
-
+if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
+  st.header(f"Chat: {st.session_state['selected_chat_name']}")
 chat.close()
