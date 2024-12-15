@@ -96,7 +96,6 @@ class Chat:
       self.cursor.execute("SELECT speaker, message FROM chat_history")
       return self.cursor.fetchall()
 
-
     def close(self):
         self.conn.close()
 
@@ -132,6 +131,7 @@ st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
 col1, col2 = st.columns([3, 1])
 
+
 with col1:
     # Área de entrada de texto
     user_input = st.chat_input("Escribe tu mensaje aquí:")
@@ -144,14 +144,25 @@ with col1:
         print("Texto generado:", generated_text)
         chat.add_message("Assistant", generated_text)
         with st.chat_message("assistant"):
-             st.write(generated_text)
+           if is_code(generated_text):
+                formatted_code = format_code(generated_text)
+                if formatted_code:
+                    st.markdown(formatted_code, unsafe_allow_html=True)
+                else:
+                    st.write(generated_text)
+           else:
+                st.write(generated_text)
+
+
 with col2:
-    st.subheader("Historial del chat")
-    dates = chat.get_all_dates()
-    selected_date = st.sidebar.selectbox("Selecciona una fecha:", dates) if dates else None
-    if selected_date:
-      history = chat.get_history_by_date(selected_date)
-      for speaker, message in history:
-          with st.chat_message(speaker.lower()):
-                st.write(message)
+  st.subheader("Historial del chat")
+  dates = chat.get_all_dates()
+  selected_date = st.sidebar.selectbox("Selecciona una fecha:", dates) if dates else None
+  if selected_date:
+    history = chat.get_history_by_date(selected_date)
+    for speaker, message in history:
+      with st.chat_message(speaker.lower()):
+           st.write(message)
+
+
 chat.close()
