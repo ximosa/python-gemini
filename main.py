@@ -268,12 +268,7 @@ if user_input:
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-            try:
-                lexer = guess_lexer(generated_text)
-                language = lexer.name
-            except:
-                language = None
-            st.code(generated_text, language=language) #Mostrar codigo con st.code, pero sin formatear.
+            st.code(generated_text)
         else:
             st.write(generated_text)
 
@@ -281,12 +276,7 @@ if user_input:
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
       if is_code(message):
-         try:
-            lexer = guess_lexer(message)
-            language = lexer.name
-         except:
-            language = None
-         st.code(message, language=language) #Mostrar codigo con st.code, pero sin formatear.
+         st.code(message)
       else:
         st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
