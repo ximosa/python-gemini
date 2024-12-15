@@ -1,10 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-import os
 import sqlite3
-from pygments import highlight
-from pygments.lexers import get_lexer_by_name, guess_lexer
-from pygments.formatters import HtmlFormatter
 from datetime import datetime
 
 # --- Configuración de la API ---
@@ -53,68 +49,80 @@ else:
 class Chat:
     def __init__(self, db_path="chat_history.db"):
         self.db_path = db_path
-        self._create_tables()
-        # Inicializar chat actual:
-        if 'selected_chat_id' not in st.session_state:
-            self._initialize_chat()
+        self._create_main_table()
+        self._initialize_chat()
 
     def _get_connection(self):
         return sqlite3.connect(self.db_path)
-    
-    def _create_tables(self):
-       conn = self._get_connection()
-       cursor = conn.cursor()
-       try:
-          cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
-                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                  name TEXT UNIQUE,
-                                  date TEXT
-                                )""")
-          conn.commit()
-       except sqlite3.Error as e:
-           st.error(f"Error al crear la tabla 'chats': {e}")
-           conn.rollback()
-       finally:
-           conn.close()
-    def _initialize_chat(self):
+
+    def _create_main_table(self):
         conn = self._get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
-            last_chat = cursor.fetchone()
-            if last_chat:
-                st.session_state['selected_chat_id'] = last_chat[0]
-                st.session_state['selected_chat_name'] = last_chat[1]
-            else:
-                st.session_state['selected_chat_id'] = 1
-                st.session_state['selected_chat_name'] = "Chat 1"
-                self.add_chat(st.session_state['selected_chat_name'])
+            cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    name TEXT UNIQUE,
+                                    date TEXT
+                                )""")
+            conn.commit()
         except sqlite3.Error as e:
-            st.error(f"Error al obtener el último chat: {e}")
-            st.session_state['selected_chat_id'] = 1
-            st.session_state['selected_chat_name'] = "Chat 1"
-            self.add_chat(st.session_state['selected_chat_name'])
+            st.error(f"Error al crear la tabla 'chats': {e}")
+            conn.rollback()
+        finally:
+            conn.close()
+
+    def _initialize_chat(self):
+      if 'selected_chat_id' not in st.session_state:
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+          cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
+          last_chat = cursor.fetchone()
+          if last_chat:
+            st.session_state['selected_chat_id'] = last_chat[0]
+            st.session_state['selected_chat_name'] = last_chat[1]
+          else:
+              st.session_state['selected_chat_id'] = 1
+              st.session_state['selected_chat_name'] = "Chat 1"
+              self._add_chat_table(st.session_state['selected_chat_id'])
+        except sqlite3.Error as e:
+          st.error(f"Error al inicializar el chat: {e}")
+          st.session_state['selected_chat_id'] = 1
+          st.session_state['selected_chat_name'] = "Chat 1"
+          self._add_chat_table(st.session_state['selected_chat_id'])
         finally:
              conn.close()
 
-    def add_message(self, speaker, message):
+    def _add_chat_table(self, chat_id):
       conn = self._get_connection()
       cursor = conn.cursor()
-      now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
       try:
-            cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{st.session_state['selected_chat_id']} (
-                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                  date TEXT,
-                                  speaker TEXT,
-                                  message TEXT
+        cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{chat_id} (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            date TEXT,
+                            speaker TEXT,
+                            message TEXT
                             )""")
-            cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
-            conn.commit()
+        conn.commit()
       except sqlite3.Error as e:
-          st.error(f"Error al añadir el mensaje: {e}")
+          st.error(f"Error al crear la tabla del chat {chat_id}: {e}")
           conn.rollback()
       finally:
-          conn.close()
+        conn.close()
+
+
+    def add_message(self, speaker, message):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
+            conn.commit()
+        except sqlite3.Error as e:
+            st.error(f"Error al añadir el mensaje: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
 
     def get_all_chats(self):
         conn = self._get_connection()
@@ -127,53 +135,54 @@ class Chat:
             st.error(f"Error al obtener chats: {e}")
             return []
         finally:
-           conn.close()
-
+            conn.close()
 
     def get_history(self):
-       conn = self._get_connection()
-       cursor = conn.cursor()
-       try:
-            cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
-            history = cursor.fetchall()
-            return history
-       except sqlite3.Error as e:
-             st.error(f"Error al obtener el historial del chat: {e}")
-             return []
-       finally:
-           conn.close()
-
-
-    def add_chat(self, name):
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-           cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
-           conn.commit()
-           st.session_state['selected_chat_id'] = cursor.lastrowid
-           st.session_state['selected_chat_name'] = name
-        except sqlite3.Error as e:
-           st.error(f"Error al añadir un nuevo chat: {e}")
-           conn.rollback()
-        finally:
-           conn.close()
-
-    def delete_chat(self, id):
+      if not st.session_state.get('selected_chat_id'):
+        return []
       conn = self._get_connection()
       cursor = conn.cursor()
       try:
-        cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
-        cursor.execute("DELETE FROM chats WHERE id=?", (id,))
-        conn.commit()
-        st.session_state['selected_chat_id'] = None
-        st.session_state['selected_chat_name'] = None
+          cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
+          history = cursor.fetchall()
+          return history
       except sqlite3.Error as e:
-        st.error(f"Error al eliminar el chat: {e}")
+          st.error(f"Error al obtener el historial del chat: {e}")
+          return []
+      finally:
+          conn.close()
+
+    def add_chat(self, name):
+      conn = self._get_connection()
+      cursor = conn.cursor()
+      now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      try:
+        cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
+        conn.commit()
+        chat_id = cursor.lastrowid
+        st.session_state['selected_chat_id'] = chat_id
+        st.session_state['selected_chat_name'] = name
+        self._add_chat_table(chat_id)
+      except sqlite3.Error as e:
+        st.error(f"Error al añadir un nuevo chat: {e}")
         conn.rollback()
       finally:
-         conn.close()
+        conn.close()
 
+    def delete_chat(self, id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
+            cursor.execute("DELETE FROM chats WHERE id=?", (id,))
+            conn.commit()
+            st.session_state['selected_chat_id'] = None
+            st.session_state['selected_chat_name'] = None
+        except sqlite3.Error as e:
+            st.error(f"Error al eliminar el chat: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
 
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
@@ -225,10 +234,8 @@ with st.sidebar:
         if st.button("Nuevo Chat"):
             chat.add_chat("Chat 1")
 
-
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
-
 
 # Lógica del chat
 if user_input:
@@ -248,7 +255,3 @@ for speaker, message in chat.get_history():
 
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
     st.header(f"Chat: {st.session_state['selected_chat_name']}")
-
-
-# Cerrar la conexión a la base de datos al final
-#chat.close() # Elimino la funcion close
