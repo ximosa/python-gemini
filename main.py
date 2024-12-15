@@ -71,12 +71,15 @@ class Chat:
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
+        # Asegurar que la tabla 'chats' se crea al iniciar
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                                   name TEXT UNIQUE,
                                   date TEXT
                             )""")
         self.conn.commit()
+
+
         # Inicializar chat actual:
         if 'selected_chat_id' not in st.session_state:
             self.cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
