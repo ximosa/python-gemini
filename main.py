@@ -144,12 +144,18 @@ class Chat:
     
     def get_first_message(self,chat_id):
       self._connect()
-      self.cursor.execute(f"SELECT message FROM chat_{chat_id} ORDER BY id ASC LIMIT 1")
-      first_message = self.cursor.fetchone()
-      self._close()
-      if first_message:
-          return first_message[0]
-      return "Nuevo Chat"
+      try:
+          self.cursor.execute(f"SELECT message FROM chat_{chat_id} ORDER BY id ASC LIMIT 1")
+          first_message = self.cursor.fetchone()
+          if first_message:
+              self._close()
+              return first_message[0]
+          else:
+              self._close()
+              return "Nuevo Chat"
+      except sqlite3.OperationalError:
+          self._close()
+          return "Nuevo Chat"
 
 
 # --- Función para generar respuesta ---
