@@ -119,10 +119,14 @@ class Chat:
         return [date[0].split(' ')[0] for date in dates]
     def get_history(self):
         self._connect()
-        self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
-        history = self.cursor.fetchall()
-        self._close()
-        return history
+        try:
+            self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
+            history = self.cursor.fetchall()
+            self._close()
+            return history
+        except sqlite3.OperationalError:
+            self._close()
+            return []
     def add_chat(self, name):
         self._connect()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
