@@ -17,10 +17,6 @@ genai.configure(api_key=API_KEY)
 available_models = genai.list_models()
 model_options = [m.name for m in available_models if 'generateContent' in m.supported_generation_methods]
 
-# Filtrar modelos no disponibles
-model_options = [m for m in model_options if 'gemini-1.0-pro-latest' not in m]
-
-
 if 'selected_model' not in st.session_state:
     if 'gemini-pro' in model_options:
       st.session_state['selected_model'] = 'gemini-pro'
@@ -36,7 +32,7 @@ try:
 except Exception as e:
     st.error(f"Ocurrió un error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
     selected_model_name = model_options[0]
-    st.session_state['selected_model'] = model_options[0]
+    st.session_state['selected_model'] = selected_model_name
 
 model = genai.GenerativeModel(selected_model_name)
 
@@ -73,97 +69,65 @@ def is_code(text):
 class Chat:
     def __init__(self, db_path="chat_history.db"):
         self.db_path = db_path
-        self.conn = None
-        self.cursor = None
-        
-    def _connect(self):
-      self.conn = sqlite3.connect(self.db_path)
-      self.cursor = self.conn.cursor()
-      self.cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
+        self.conn = sqlite3.connect(self.db_path)
+        self.cursor = self.conn.cursor()
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                                   name TEXT UNIQUE,
                                   date TEXT
                             )""")
-      self.conn.commit()
+        self.conn.commit()
+        # Inicializar chat actual:
+        if 'selected_chat_id' not in st.session_state:
+            self.cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
+            last_chat = self.cursor.fetchone()
+            if last_chat:
+              st.session_state['selected_chat_id'] = last_chat[0]
+              st.session_state['selected_chat_name'] = last_chat[1]
+            else:
+              st.session_state['selected_chat_id'] = 1
+              st.session_state['selected_chat_name'] = "Chat 1"
+              self.add_chat(st.session_state['selected_chat_name'])
 
-
-    def _close(self):
-        if self.conn:
-            self.conn.close()
 
     def add_message(self, speaker, message):
-        self._connect()
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{st.session_state['selected_chat_id']} (
+         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+         self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{st.session_state['selected_chat_id']} (
                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                                   date TEXT,
                                   speaker TEXT,
                                   message TEXT
                             )""")
-        self.cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
-        self.conn.commit()
-        self._close()
+         self.cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
+         self.conn.commit()
     def get_all_chats(self):
-        self._connect()
-        self.cursor.execute("SELECT name, id FROM chats")
-        chats = self.cursor.fetchall()
-        self._close()
-        return chats
+         self.cursor.execute("SELECT name, id FROM chats")
+         return self.cursor.fetchall()
     def get_history_by_date(self, date):
-        self._connect()
         self.cursor.execute("SELECT speaker, message FROM chat_history WHERE date LIKE ?", (f"{date}%",))
-        history = self.cursor.fetchall()
-        self._close()
-        return history
+        return self.cursor.fetchall()
     def get_all_dates(self):
-        self._connect()
         self.cursor.execute("SELECT DISTINCT date FROM chat_history")
         dates = self.cursor.fetchall()
-        self._close()
         return [date[0].split(' ')[0] for date in dates]
     def get_history(self):
-        self._connect()
-        try:
-            self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
-            history = self.cursor.fetchall()
-            self._close()
-            return history
-        except sqlite3.OperationalError:
-            self._close()
-            return []
+      self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
+      return self.cursor.fetchall()
     def add_chat(self, name):
-        self._connect()
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
-        self.conn.commit()
-        st.session_state['selected_chat_id'] = self.cursor.lastrowid
-        st.session_state['selected_chat_name'] = name
-        self._close()
+      now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      self.cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
+      self.conn.commit()
+      st.session_state['selected_chat_id'] = self.cursor.lastrowid
+      st.session_state['selected_chat_name'] = name
 
+    def close(self):
+        self.conn.close()
     def delete_chat(self, id):
-        self._connect()
-        self.cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
-        self.cursor.execute("DELETE FROM chats WHERE id=?", (id,))
-        self.conn.commit()
-        st.session_state['selected_chat_id'] = None
-        st.session_state['selected_chat_name'] = None
-        self._close()
-
-    
-    def get_first_message(self,chat_id):
-      self._connect()
-      try:
-          self.cursor.execute(f"SELECT message FROM chat_{chat_id} ORDER BY id ASC LIMIT 1")
-          first_message = self.cursor.fetchone()
-          if first_message:
-            self._close()
-            return first_message[0]
-          else:
-             self._close()
-             return "Nuevo Chat"
-      except sqlite3.OperationalError:
-          self._close()
-          return "Nuevo Chat"
+      self.cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
+      self.cursor.execute("DELETE FROM chats WHERE id=?", (id,))
+      self.conn.commit()
+      st.session_state['selected_chat_id'] = None
+      st.session_state['selected_chat_name'] = None
 
 
 # --- Función para generar respuesta ---
@@ -176,13 +140,10 @@ def generate_response(prompt, chat_history, custom_prompt):
         full_prompt += f"Usuario: {prompt}\n"
         full_prompt += " Si te pido código, genera solo el código, y delimítalo usando ```html para HTML, ```python para Python etc. \n"
         print("Prompt generado:", full_prompt)
-        
-        # Usar el modelo de código si se solicita código
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
         else:
             response = model.generate_content(full_prompt)
-        
         print("Respuesta API recibida:", response)
         if response.text:
             return response.text
@@ -190,21 +151,7 @@ def generate_response(prompt, chat_history, custom_prompt):
             return "No se pudo generar respuesta."
     except Exception as e:
         print("Error en generate_response:", e)
-        st.error(f"Ocurrió un error al interactuar con la API usando el modelo {st.session_state['selected_model']}: {e}. Intentando con el modelo predeterminado.")
-        
-        # Usar un modelo predeterminado si el modelo seleccionado falla
-        try:
-             if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
-                response = genai.GenerativeModel('gemini-pro').generate_content(full_prompt) #Usa gemini-pro si el modelo code falla
-             else:
-                response = genai.GenerativeModel('gemini-pro').generate_content(full_prompt)
-             if response.text:
-                  return response.text
-             else:
-                  return "No se pudo generar respuesta con el modelo predeterminado."
-        except Exception as e2:
-          st.error(f"Ocurrió un error al interactuar con la API usando el modelo predeterminado: {e2}. Asegúrate de que tu modelo predeterminado esté configurado.")
-          return f"Ocurrió un error al interactuar con la API: {e2}"
+        return f"Ocurrió un error al interactuar con la API: {e}"
 
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
@@ -212,21 +159,6 @@ st.title("Chat con Gemini")
 if 'chat' not in st.session_state:
     st.session_state['chat'] = Chat()
 chat = st.session_state['chat']
-
-# Inicializar chat actual:
-if 'selected_chat_id' not in st.session_state:
-    chat._connect()
-    chat.cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
-    last_chat = chat.cursor.fetchone()
-    if last_chat:
-      st.session_state['selected_chat_id'] = last_chat[0]
-      st.session_state['selected_chat_name'] = last_chat[1]
-    else:
-      st.session_state['selected_chat_id'] = 1
-      st.session_state['selected_chat_name'] = "Chat 1"
-      chat.add_chat(st.session_state['selected_chat_name'])
-    chat._close()
-
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
@@ -235,31 +167,24 @@ with st.sidebar:
     all_chats = chat.get_all_chats()
     if all_chats:
         for chat_name, chat_id in all_chats:
-            first_message = chat.get_first_message(chat_id)
-            col1, col2 = st.columns([0.7,0.3])
-            with col1:
-                if st.button(first_message, key = chat_id):
-                    st.session_state['selected_chat_id'] = chat_id
-                    st.session_state['selected_chat_name'] = first_message
-            with col2:
-                if st.button("x", key=f"delete_{chat_id}"):
-                    chat.delete_chat(chat_id)
-                    st.rerun()
+            if st.button(chat_name, key = chat_id):
+                st.session_state['selected_chat_id'] = chat_id
+                st.session_state['selected_chat_name'] = chat_name
         if st.button("Nuevo Chat"):
-          chat.add_chat(f"Nuevo Chat")
+          chat.add_chat(f"Chat {len(all_chats)+1}")
     else:
         if st.button("Nuevo Chat"):
-            chat.add_chat("Nuevo Chat")
+            chat.add_chat("Chat 1")
+    if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_id'] !=1:
+        if st.button("Eliminar Chat"):
+          chat.delete_chat(st.session_state['selected_chat_id'])
+          st.rerun()
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
 # --- Lógica del chat ---
 if user_input:
-    if st.session_state['selected_chat_name'] == "Nuevo Chat":
-      chat.delete_chat(st.session_state['selected_chat_id'])
-      chat.add_chat(user_input)
-    else:
-      chat.add_message("Usuario", user_input)
+    chat.add_message("Usuario", user_input)
     # Generar respuesta con contexto
     generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
     print("Texto generado:", generated_text)
@@ -268,16 +193,19 @@ if user_input:
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-            st.code(generated_text)
+             formatted_code = format_code(generated_text)
+             if formatted_code:
+                st.markdown(formatted_code, unsafe_allow_html=True)
+             else:
+                st.write(generated_text)
         else:
             st.write(generated_text)
 
 # Visualizar el historial del chat
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
-      if is_code(message):
-         st.code(message)
-      else:
-        st.write(message)
+       st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
   st.header(f"Chat: {st.session_state['selected_chat_name']}")
+chat.close()
+
