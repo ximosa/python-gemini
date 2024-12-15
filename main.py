@@ -32,7 +32,7 @@ try:
 except Exception as e:
     st.error(f"Ocurrió un error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
     selected_model_name = model_options[0]
-    st.session_state['selected_model'] = model_options[0]
+    st.session_state['selected_model'] = selected_model_name
 
 model = genai.GenerativeModel(selected_model_name)
 
@@ -111,11 +111,8 @@ class Chat:
         dates = self.cursor.fetchall()
         return [date[0].split(' ')[0] for date in dates]
     def get_history(self):
-      try:
-        self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
-        return self.cursor.fetchall()
-      except sqlite3.OperationalError:
-        return []
+      self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
+      return self.cursor.fetchall()
     def add_chat(self, name):
       now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
       self.cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
@@ -131,15 +128,6 @@ class Chat:
       self.conn.commit()
       st.session_state['selected_chat_id'] = None
       st.session_state['selected_chat_name'] = None
-    def get_first_message(self,chat_id):
-      try:
-        self.cursor.execute(f"SELECT message FROM chat_{chat_id} ORDER BY id ASC LIMIT 1")
-        first_message = self.cursor.fetchone()
-        if first_message:
-            return first_message[0]
-        return "Nuevo Chat"
-      except sqlite3.OperationalError:
-          return "Nuevo Chat"
 
 
 # --- Función para generar respuesta ---
@@ -178,31 +166,24 @@ with st.sidebar:
     st.header("Chats")
     all_chats = chat.get_all_chats()
     if all_chats:
-      for chat_name, chat_id in all_chats:
-        first_message = chat.get_first_message(chat_id)
-        col1, col2 = st.columns([0.7,0.3])
-        with col1:
-            if st.button(first_message, key = chat_id):
+        for chat_name, chat_id in all_chats:
+            if st.button(chat_name, key = chat_id):
                 st.session_state['selected_chat_id'] = chat_id
-                st.session_state['selected_chat_name'] = first_message
-        with col2:
-            if st.button("x", key=f"delete_{chat_id}"):
-              chat.delete_chat(chat_id)
-              st.rerun()
-      if st.button("Nuevo Chat"):
-          chat.add_chat(f"Nuevo Chat")
+                st.session_state['selected_chat_name'] = chat_name
+        if st.button("Nuevo Chat"):
+          chat.add_chat(f"Chat {len(all_chats)+1}")
     else:
         if st.button("Nuevo Chat"):
-            chat.add_chat("Nuevo Chat")
+            chat.add_chat("Chat 1")
+    if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_id'] !=1:
+        if st.button("Eliminar Chat"):
+          chat.delete_chat(st.session_state['selected_chat_id'])
+          st.rerun()
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
 # --- Lógica del chat ---
 if user_input:
-  if st.session_state['selected_chat_name'] == "Nuevo Chat":
-    chat.delete_chat(st.session_state['selected_chat_id'])
-    chat.add_chat(user_input)
-  else:
     chat.add_message("Usuario", user_input)
     # Generar respuesta con contexto
     generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
@@ -212,18 +193,18 @@ if user_input:
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-             st.code(generated_text)
+             formatted_code = format_code(generated_text)
+             if formatted_code:
+                st.markdown(formatted_code, unsafe_allow_html=True)
+             else:
+                st.write(generated_text)
         else:
             st.write(generated_text)
 
 # Visualizar el historial del chat
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
-       if is_code(message):
-            st.code(message)
-       else:
-            st.write(message)
+       st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
   st.header(f"Chat: {st.session_state['selected_chat_name']}")
 chat.close()
-
