@@ -71,33 +71,58 @@ class Chat:
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS chat_history (
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
+                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                  name TEXT UNIQUE,
+                                  date TEXT
+                            )""")
+        self.conn.commit()
+        # Inicializar chat actual:
+        if 'selected_chat_id' not in st.session_state:
+            self.cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
+            last_chat = self.cursor.fetchone()
+            if last_chat:
+              st.session_state['selected_chat_id'] = last_chat[0]
+              st.session_state['selected_chat_name'] = last_chat[1]
+            else:
+              st.session_state['selected_chat_id'] = 1
+              st.session_state['selected_chat_name'] = "Chat 1"
+              self.add_chat(st.session_state['selected_chat_name'])
+
+
+    def add_message(self, speaker, message):
+         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+         self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{st.session_state['selected_chat_id']} (
                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                                   date TEXT,
                                   speaker TEXT,
                                   message TEXT
                             )""")
-        self.conn.commit()
-
-    def add_message(self, speaker, message):
-         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-         self.cursor.execute("INSERT INTO chat_history (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
+         self.cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
          self.conn.commit()
-
-    def get_history_by_date(self, date):
-        self.cursor.execute("SELECT speaker, message FROM chat_history WHERE date LIKE ?", (f"{date}%",))
-        return self.cursor.fetchall()
-    def get_all_dates(self):
-        self.cursor.execute("SELECT DISTINCT date FROM chat_history")
-        dates = self.cursor.fetchall()
-        return [date[0].split(' ')[0] for date in dates]
-
-    def get_history(self):
-      self.cursor.execute("SELECT speaker, message FROM chat_history")
+    def get_all_chats(self):
+         self.cursor.execute("SELECT name, id FROM chats")
+         return self.cursor.fetchall()
+    def get_history(self, chat_id):
+      self.cursor.execute(f"SELECT speaker, message FROM chat_{chat_id}")
       return self.cursor.fetchall()
+
+    def add_chat(self, name):
+      now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      self.cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
+      self.conn.commit()
+      st.session_state['selected_chat_id'] = self.cursor.lastrowid
+      st.session_state['selected_chat_name'] = name
 
     def close(self):
         self.conn.close()
+
+    def delete_chat(self, id):
+      self.cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
+      self.cursor.execute("DELETE FROM chats WHERE id=?", (id,))
+      self.conn.commit()
+      st.session_state['selected_chat_id'] = None
+      st.session_state['selected_chat_name'] = None
 
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
