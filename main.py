@@ -268,11 +268,12 @@ if user_input:
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-            formatted_code = format_code(generated_text)
-            if formatted_code:
-              st.markdown(formatted_code, unsafe_allow_html=True) #Mostramos el html formateado con markdown, para que se vea limpio
-            else:
-              st.code(generated_text, language = None) #Mostramos el codigo en bruto con code si falla el formato
+            try:
+                lexer = guess_lexer(generated_text)
+                language = lexer.name
+            except:
+                language = None
+            st.code(generated_text, language=language)
         else:
             st.write(generated_text)
 
@@ -280,11 +281,12 @@ if user_input:
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
       if is_code(message):
-        formatted_code = format_code(message)
-        if formatted_code:
-            st.markdown(formatted_code, unsafe_allow_html=True)  #Mostramos el html formateado con markdown, para que se vea limpio
-        else:
-           st.code(message, language=None) #Mostramos el codigo en bruto con code si falla el formato
+         try:
+            lexer = guess_lexer(message)
+            language = lexer.name
+         except:
+            language = None
+         st.code(message, language=language)
       else:
         st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
