@@ -10,7 +10,7 @@ from datetime import datetime
 # --- Configuración de la API ---
 API_KEY = st.secrets["API_KEY"]
 if not API_KEY:
-    st.error("No se encontró la clave de API. Asegúrate de haberla configurado en Streamlit Cloud.")
+    st.error("No se encontró la clave de la API. Asegúrate de haberla configurado en Streamlit Cloud.")
     st.stop()
 genai.configure(api_key=API_KEY)
 
@@ -27,7 +27,7 @@ if 'selected_model' not in st.session_state:
         st.stop()
 
 try:
-    selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model']))
+    selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model'])
     st.session_state['selected_model'] = selected_model_name
 except Exception as e:
     st.error(f"Ocurrió un error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
@@ -49,22 +49,6 @@ else:
     code_model = model
     print("No se encontró un modelo específico para código, usando gemini-pro")
 
-
-# --- Funciones auxiliares ---
-def format_code(text):
-    try:
-        lexer = guess_lexer(text)
-        formatter = HtmlFormatter()
-        return highlight(text, lexer, formatter)
-    except:
-        return None
-
-def is_code(text):
-    try:
-        guess_lexer(text)
-        return True
-    except:
-        return False
 # --- Clase Chat ---
 class Chat:
     def __init__(self, db_path="chat_history.db"):
@@ -128,10 +112,8 @@ class Chat:
       st.session_state['selected_chat_id'] = None
       st.session_state['selected_chat_name'] = None
 
-
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
-    """Genera texto o código con el modelo Gemini, incluyendo el contexto de la conversación."""
     try:
         full_prompt = ""
         for speaker, message in chat_history:
@@ -160,7 +142,7 @@ if 'chat' not in st.session_state:
 chat = st.session_state['chat']
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
-# --- Layout de la Interfaz ---
+# --- Layout de la interfaz ---
 with st.sidebar:
     st.header("Chats")
     all_chats = chat.get_all_chats()
@@ -173,7 +155,7 @@ with st.sidebar:
                 chat.delete_chat(chat_id)
                 st.rerun()
         if st.button("Nuevo Chat"):
-          chat.add_chat(f"Chat {len(all_chats)+1}")
+            chat.add_chat(f"Chat {len(all_chats)+1}")
     else:
         if st.button("Nuevo Chat"):
             chat.add_chat("Chat 1")
@@ -181,31 +163,24 @@ with st.sidebar:
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
-# --- Lógica del chat ---
+# Lógica del chat
 if user_input:
     chat.add_message("Usuario", user_input)
-    # Generar respuesta con contexto
-    generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
-    print("Texto generado:", generated_text)
+    generated_text = generate_response(user_input, chat.get_history(), st.session_state['custom_prompt'])
     chat.add_message("Assistant", generated_text)
+    print("Texto generado:", generated_text)
 
     # Mostrar la respuesta
     with st.chat_message("assistant"):
-        if is_code(generated_text):
-             formatted_code = format_code(generated_text)
-             if formatted_code:
-                st.markdown(formatted_code, unsafe_allow_html=True)
-             else:
-                st.write(generated_text)
-        else:
-            st.write(generated_text)
+        st.write(generated_text)
 
-# Visualizar el historial del chat
+# Mostrar el historial del chat
 for speaker, message in chat.get_history():
-   with st.chat_message(speaker.lower()):
-       st.write(message)
+    with st.chat_message(speaker):
+        st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
-  st.header(f"Chat: {st.session_state['selected_chat_name']}")
+    st.header(f"Chat: {st.session_state['selected_chat_name']}")
 
 # Cerrar la conexión a la base de datos al final
 chat.close()
+
