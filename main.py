@@ -170,15 +170,15 @@ with st.sidebar:
             if st.button(chat_name, key = chat_id):
                 st.session_state['selected_chat_id'] = chat_id
                 st.session_state['selected_chat_name'] = chat_name
+            if st.button(f"Eliminar {chat_name}", key = f"delete_{chat_id}"):
+                chat.delete_chat(chat_id)
+                st.rerun()
         if st.button("Nuevo Chat"):
           chat.add_chat(f"Chat {len(all_chats)+1}")
     else:
         if st.button("Nuevo Chat"):
             chat.add_chat("Chat 1")
-    if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_id'] !=1:
-        if st.button("Eliminar Chat"):
-          chat.delete_chat(st.session_state['selected_chat_id'])
-          st.rerun()
+
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
@@ -207,4 +207,5 @@ for speaker, message in chat.get_history():
        st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
   st.header(f"Chat: {st.session_state['selected_chat_name']}")
+# Cerrar la conexión a la base de datos al final
 chat.close()
