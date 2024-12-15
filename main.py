@@ -12,7 +12,20 @@ if not API_KEY:
     st.stop()
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-pro')
-code_model = genai.GenerativeModel('code-bison')
+available_models = genai.list_models()
+
+code_model_name = None
+for m in available_models:
+    if 'code' in m.name.lower() and 'generateContent' in m.supported_generation_methods:
+        code_model_name = m.name
+        break
+
+if code_model_name:
+    code_model = genai.GenerativeModel(code_model_name)
+    print(f"Usando modelo para código: {code_model_name}")
+else:
+    code_model = model
+    print("No se encontró un modelo específico para código, usando gemini-pro")
 
 # --- Inicialización del historial del chat ---
 if 'chat_history' not in st.session_state:
@@ -60,25 +73,25 @@ st.title("Chat con Gemini")
 
 # Visualizar el historial del chat
 for speaker, message in st.session_state['chat_history']:
-  with st.chat_message(speaker.lower()):
-    if is_code(message):
-        formatted_code = format_code(message)
-        if formatted_code:
-          st.markdown(formatted_code, unsafe_allow_html=True)
+    with st.chat_message(speaker.lower()):
+        if is_code(message):
+            formatted_code = format_code(message)
+            if formatted_code:
+                st.markdown(formatted_code, unsafe_allow_html=True)
+            else:
+                st.write(message)
         else:
-           st.write(message)
-    else:
-      st.write(message)
+            st.write(message)
 
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:")
 
 # --- Lógica del chat ---
 if user_input:
-  st.session_state['chat_history'].append(("Usuario", user_input))
-  print("Historial del chat actualizado:", st.session_state['chat_history'])
+    st.session_state['chat_history'].append(("Usuario", user_input))
+    print("Historial del chat actualizado:", st.session_state['chat_history'])
     # Generar respuesta con contexto
-  generated_text = generate_response(user_input, st.session_state['chat_history'])
-  print("Texto generado:", generated_text)
-  st.session_state['chat_history'].append(("Assistant", generated_text))
-  print("Historial del chat actualizado:", st.session_state['chat_history'])
+    generated_text = generate_response(user_input, st.session_state['chat_history'])
+    print("Texto generado:", generated_text)
+    st.session_state['chat_history'].append(("Assistant", generated_text))
+    print("Historial del chat actualizado:", st.session_state['chat_history'])
