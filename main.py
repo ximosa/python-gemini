@@ -69,72 +69,84 @@ def is_code(text):
 class Chat:
     def __init__(self, db_path="chat_history.db"):
         self.db_path = db_path
-        self.conn = sqlite3.connect(self.db_path)
-        self.cursor = self.conn.cursor()
-        # Asegurar que la tabla 'chats' se crea al iniciar
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
+        self.conn = None
+        self.cursor = None
+        
+    def _connect(self):
+      self.conn = sqlite3.connect(self.db_path)
+      self.cursor = self.conn.cursor()
+      self.cursor.execute("""CREATE TABLE IF NOT EXISTS chats (
                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                                   name TEXT UNIQUE,
                                   date TEXT
                             )""")
-        self.conn.commit()
+      self.conn.commit()
 
 
-        # Inicializar chat actual:
-        if 'selected_chat_id' not in st.session_state:
-            self.cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
-            last_chat = self.cursor.fetchone()
-            if last_chat:
-              st.session_state['selected_chat_id'] = last_chat[0]
-              st.session_state['selected_chat_name'] = last_chat[1]
-            else:
-              st.session_state['selected_chat_id'] = 1
-              st.session_state['selected_chat_name'] = "Chat 1"
-              self.add_chat(st.session_state['selected_chat_name'])
-
+    def _close(self):
+        if self.conn:
+            self.conn.close()
 
     def add_message(self, speaker, message):
-         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-         self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{st.session_state['selected_chat_id']} (
+        self._connect()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{st.session_state['selected_chat_id']} (
                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                                   date TEXT,
                                   speaker TEXT,
                                   message TEXT
                             )""")
-         self.cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
-         self.conn.commit()
+        self.cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
+        self.conn.commit()
+        self._close()
     def get_all_chats(self):
-         self.cursor.execute("SELECT name, id FROM chats")
-         return self.cursor.fetchall()
+        self._connect()
+        self.cursor.execute("SELECT name, id FROM chats")
+        chats = self.cursor.fetchall()
+        self._close()
+        return chats
     def get_history_by_date(self, date):
+        self._connect()
         self.cursor.execute("SELECT speaker, message FROM chat_history WHERE date LIKE ?", (f"{date}%",))
-        return self.cursor.fetchall()
+        history = self.cursor.fetchall()
+        self._close()
+        return history
     def get_all_dates(self):
+        self._connect()
         self.cursor.execute("SELECT DISTINCT date FROM chat_history")
         dates = self.cursor.fetchall()
+        self._close()
         return [date[0].split(' ')[0] for date in dates]
     def get_history(self):
-      self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
-      return self.cursor.fetchall()
+        self._connect()
+        self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
+        history = self.cursor.fetchall()
+        self._close()
+        return history
     def add_chat(self, name):
-      now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-      self.cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
-      self.conn.commit()
-      st.session_state['selected_chat_id'] = self.cursor.lastrowid
-      st.session_state['selected_chat_name'] = name
+        self._connect()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
+        self.conn.commit()
+        st.session_state['selected_chat_id'] = self.cursor.lastrowid
+        st.session_state['selected_chat_name'] = name
+        self._close()
 
-    def close(self):
-        self.conn.close()
     def delete_chat(self, id):
-      self.cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
-      self.cursor.execute("DELETE FROM chats WHERE id=?", (id,))
-      self.conn.commit()
-      st.session_state['selected_chat_id'] = None
-      st.session_state['selected_chat_name'] = None
+        self._connect()
+        self.cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
+        self.cursor.execute("DELETE FROM chats WHERE id=?", (id,))
+        self.conn.commit()
+        st.session_state['selected_chat_id'] = None
+        st.session_state['selected_chat_name'] = None
+        self._close()
+
     
     def get_first_message(self,chat_id):
+      self._connect()
       self.cursor.execute(f"SELECT message FROM chat_{chat_id} ORDER BY id ASC LIMIT 1")
       first_message = self.cursor.fetchone()
+      self._close()
       if first_message:
           return first_message[0]
       return "Nuevo Chat"
@@ -169,6 +181,21 @@ st.title("Chat con Gemini")
 if 'chat' not in st.session_state:
     st.session_state['chat'] = Chat()
 chat = st.session_state['chat']
+
+# Inicializar chat actual:
+if 'selected_chat_id' not in st.session_state:
+    chat._connect()
+    chat.cursor.execute("SELECT id, name FROM chats ORDER BY id DESC LIMIT 1")
+    last_chat = chat.cursor.fetchone()
+    if last_chat:
+      st.session_state['selected_chat_id'] = last_chat[0]
+      st.session_state['selected_chat_name'] = last_chat[1]
+    else:
+      st.session_state['selected_chat_id'] = 1
+      st.session_state['selected_chat_name'] = "Chat 1"
+      chat.add_chat(st.session_state['selected_chat_name'])
+    chat._close()
+
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
@@ -224,4 +251,3 @@ for speaker, message in chat.get_history():
        st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
   st.header(f"Chat: {st.session_state['selected_chat_name']}")
-chat.close()
