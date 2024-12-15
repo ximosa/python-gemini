@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Configuración de la API ---
-API_KEY = os.getenv("AIzaSyCJCeNeTm7yx2nsQWjPp6NbyImcLXSwCBk")
+API_KEY = os.getenv("API_KEY")
 if not API_KEY:
     st.error("No se encontró la clave de API. Asegúrate de haber creado el archivo .env")
     st.stop()
