@@ -1,16 +1,13 @@
 import streamlit as st
 import google.generativeai as genai
 import os
-from dotenv import load_dotenv
-
-# Carga las variables de entorno
-load_dotenv()
 
 # --- Configuración de la API ---
-API_KEY = os.getenv("API_KEY")
+API_KEY = st.secrets["API_KEY"]
 if not API_KEY:
-    st.error("No se encontró la clave de API. Asegúrate de haber creado el archivo .env")
+    st.error("No se encontró la clave de API. Asegúrate de haberla configurado en Streamlit Cloud.")
     st.stop()
+
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
@@ -66,12 +63,12 @@ if user_input:
         if end_index != -1:
             generated_code = generated_text[start_index:end_index]
 
-    # Mostrar el código o mensaje de respuesta
-    with st.chat_message("assistant"):
-        if generated_code:
-           st.code(generated_code, language="python")  # Ajusta el lenguaje si lo necesitas
-        else:
-           st.write(generated_text)
+        # Mostrar el código o mensaje de respuesta
+        with st.chat_message("assistant"):
+            if generated_code:
+               st.code(generated_code, language="python")  # Ajusta el lenguaje si lo necesitas
+            else:
+               st.write(generated_text)
 
-    # Actualizar el historial de código
-    st.session_state['code_history'].append(generated_code)
+        # Actualizar el historial de código
+        st.session_state['code_history'].append(generated_code)
