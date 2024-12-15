@@ -32,6 +32,7 @@ class GeminiAPI:
           for speaker, message in chat_history:
               full_prompt += f"{speaker}: {message}\n"
           full_prompt += f"Usuario: {prompt}\n"
+          full_prompt += " Si te pido código, genera solo el código, y delimítalo usando ```html para HTML, ```python para Python etc. \n"
           print("Prompt generado:", full_prompt)
           if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
              response = self.code_model.generate_content(full_prompt)
@@ -100,23 +101,15 @@ if user_input:
     chat.add_message("Assistant", generated_text)
     # Mostrar la respuesta
     with st.chat_message("assistant"):
-       if is_code(generated_text):
-           formatted_code = format_code(generated_text)
-           if formatted_code:
-               st.markdown(formatted_code, unsafe_allow_html=True)
-           else:
-               st.write(generated_text)
-       else:
+        if user_input.lower().startswith("genera código") or user_input.lower().startswith("code") or is_code(generated_text):
+             st.code(generated_text, language="python")
+        else:
             st.write(generated_text)
 
 # Visualizar el historial del chat
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
       if is_code(message):
-        formatted_code = format_code(message)
-        if formatted_code:
-          st.markdown(formatted_code, unsafe_allow_html=True)
-        else:
-          st.write(message)
+         st.code(message, language="python")
       else:
-           st.write(message)
+        st.write(message)
