@@ -22,8 +22,11 @@ def generate_code_with_context(prompt, chat_history, code_history):
     """Genera código con el modelo Gemini, incluyendo el contexto de la conversación."""
     try:
         full_prompt = ""
-        for message, code in zip(chat_history, code_history):
-            full_prompt += f"Usuario: {message}\n Código generado previamente:\n ```{code}```\n"
+        for i, (message, code) in enumerate(zip(chat_history, code_history)):
+            if code:
+              full_prompt += f"Usuario: {message}\n Respuesta anterior:\n ```{code}```\n"
+            else:
+              full_prompt += f"Usuario: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
         print("Prompt generado:", full_prompt)
         response = model.generate_content(full_prompt)
@@ -46,7 +49,6 @@ for message, code in zip(st.session_state['chat_history'], st.session_state['cod
     if code:
         with st.chat_message("assistant"):
             st.code(code, language="python")
-
 
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu solicitud de código aquí:")
