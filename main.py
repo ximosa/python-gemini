@@ -138,7 +138,7 @@ def generate_response(prompt, chat_history, custom_prompt):
         for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
-        full_prompt += f"{custom_prompt}\n"
+        full_prompt += " Si te pido código, genera solo el código, y delimítalo usando ```html para HTML, ```python para Python etc. \n"
         print("Prompt generado:", full_prompt)
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
@@ -159,7 +159,6 @@ st.title("Chat con Gemini")
 if 'chat' not in st.session_state:
     st.session_state['chat'] = Chat()
 chat = st.session_state['chat']
-
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
@@ -174,43 +173,21 @@ if user_input:
     generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
     print("Texto generado:", generated_text)
     chat.add_message("Assistant", generated_text)
+
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-            formatted_code = format_code(generated_text)
-            if formatted_code:
+             formatted_code = format_code(generated_text)
+             if formatted_code:
                 st.markdown(formatted_code, unsafe_allow_html=True)
-            else:
+             else:
                 st.write(generated_text)
         else:
             st.write(generated_text)
 
+# Visualizar el historial del chat
+for speaker, message in chat.get_history():
+   with st.chat_message(speaker.lower()):
+       st.write(message)
 
-with st.sidebar:
-    st.subheader("Historial del chat")
-    if st.button("Nuevo Chat"):
-      new_chat_name = f"Chat {len(chat.get_all_chats()) + 1}"
-      chat.add_chat(new_chat_name)
-      st.experimental_rerun()
-    chat_names = chat.get_all_chats()
-    if chat_names:
-        chat_names_dict = {name:id for name, id in chat_names }
-        selected_chat_name = st.selectbox("Selecciona un chat", chat_names_dict.keys(), index=list(chat_names_dict.keys()).index(st.session_state['selected_chat_name']))
-        st.session_state['selected_chat_id'] = chat_names_dict[selected_chat_name]
-        st.session_state['selected_chat_name'] = selected_chat_name
-        if st.button("Eliminar este chat", key="delete_chat_button"):
-            chat.delete_chat(st.session_state['selected_chat_id'])
-            st.experimental_rerun()
-    if 'selected_chat_id' in st.session_state:
-         history = chat.get_history(st.session_state['selected_chat_id'])
-         for speaker, message in history:
-           with st.chat_message(speaker.lower()):
-              if is_code(message):
-                  formatted_code = format_code(message)
-                  if formatted_code:
-                      st.markdown(formatted_code, unsafe_allow_html=True)
-                  else:
-                    st.write(message)
-              else:
-                st.write(message)
 chat.close()
