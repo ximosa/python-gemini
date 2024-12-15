@@ -162,10 +162,13 @@ def generate_response(prompt, chat_history, custom_prompt):
         full_prompt += f"Usuario: {prompt}\n"
         full_prompt += " Si te pido código, genera solo el código, y delimítalo usando ```html para HTML, ```python para Python etc. \n"
         print("Prompt generado:", full_prompt)
+        
+        # Usar el modelo de código si se solicita código
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
         else:
             response = model.generate_content(full_prompt)
+        
         print("Respuesta API recibida:", response)
         if response.text:
             return response.text
@@ -173,7 +176,21 @@ def generate_response(prompt, chat_history, custom_prompt):
             return "No se pudo generar respuesta."
     except Exception as e:
         print("Error en generate_response:", e)
-        return f"Ocurrió un error al interactuar con la API: {e}"
+        st.error(f"Ocurrió un error al interactuar con la API usando el modelo {st.session_state['selected_model']}: {e}. Intentando con el modelo predeterminado.")
+        
+        # Usar un modelo predeterminado si el modelo seleccionado falla
+        try:
+             if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
+                response = genai.GenerativeModel('gemini-pro').generate_content(full_prompt) #Usa gemini-pro si el modelo code falla
+             else:
+                response = genai.GenerativeModel('gemini-pro').generate_content(full_prompt)
+             if response.text:
+                  return response.text
+             else:
+                  return "No se pudo generar respuesta con el modelo predeterminado."
+        except Exception as e2:
+          st.error(f"Ocurrió un error al interactuar con la API usando el modelo predeterminado: {e2}. Asegúrate de que tu modelo predeterminado esté configurado.")
+          return f"Ocurrió un error al interactuar con la API: {e2}"
 
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
