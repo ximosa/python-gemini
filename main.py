@@ -89,7 +89,6 @@ class Chat:
               st.session_state['selected_chat_name'] = "Chat 1"
               self.add_chat(st.session_state['selected_chat_name'])
 
-
     def add_message(self, speaker, message):
          now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
          self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS chat_{st.session_state['selected_chat_id']} (
@@ -207,5 +206,6 @@ for speaker, message in chat.get_history():
        st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
   st.header(f"Chat: {st.session_state['selected_chat_name']}")
+
 # Cerrar la conexión a la base de datos al final
 chat.close()
