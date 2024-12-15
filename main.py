@@ -108,7 +108,7 @@ def generate_response(prompt, chat_history, custom_prompt):
         for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
-        full_prompt += " Si te pido código, genera solo el código, y delimítalo usando ```html para HTML, ```python para Python etc. \n"
+        full_prompt += f"{custom_prompt}\n"
         print("Prompt generado:", full_prompt)
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
@@ -132,7 +132,6 @@ st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
 col1, col2 = st.columns([3, 1])
 
-
 with col1:
     # Área de entrada de texto
     user_input = st.chat_input("Escribe tu mensaje aquí:")
@@ -144,19 +143,8 @@ with col1:
         generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
         print("Texto generado:", generated_text)
         chat.add_message("Assistant", generated_text)
-
-         # Mostrar la respuesta
         with st.chat_message("assistant"):
-            if is_code(generated_text):
-                formatted_code = format_code(generated_text)
-                if formatted_code:
-                    st.markdown(formatted_code, unsafe_allow_html=True)
-                else:
-                    st.write(generated_text)
-            else:
-                st.write(generated_text)
-
-
+             st.write(generated_text)
 with col2:
     st.subheader("Historial del chat")
     dates = chat.get_all_dates()
@@ -165,12 +153,5 @@ with col2:
       history = chat.get_history_by_date(selected_date)
       for speaker, message in history:
           with st.chat_message(speaker.lower()):
-              if is_code(message):
-                formatted_code = format_code(message)
-                if formatted_code:
-                    st.markdown(formatted_code, unsafe_allow_html=True)
-                else:
-                    st.write(message)
-              else:
                 st.write(message)
 chat.close()
