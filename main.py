@@ -12,11 +12,27 @@ genai.configure(api_key=API_KEY)
 available_models = genai.list_models()
 model_options = [m.name for m in available_models if 'generateContent' in m.supported_generation_methods]
 
-if 'selected_model' not in st.session_state:
-   st.session_state['selected_model'] = 'gemini-pro'
+if not model_options:
+   st.error("No se encontró ningún modelo válido para la API")
+   st.stop()
+else:
+   print(f"Lista de modelos disponibles: {model_options}")
 
-selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model']))
-st.session_state['selected_model'] = selected_model_name
+if 'selected_model' not in st.session_state:
+    if 'gemini-pro' in model_options:
+      st.session_state['selected_model'] = 'gemini-pro'
+    else:
+        st.session_state['selected_model'] = model_options[0]
+
+
+try:
+    selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model']))
+    st.session_state['selected_model'] = selected_model_name
+except Exception as e:
+    st.error(f"Error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
+    selected_model_name = model_options[0]
+    st.session_state['selected_model'] = selected_model_name
+
 
 model = genai.GenerativeModel(selected_model_name)
 
@@ -91,7 +107,6 @@ if user_input:
     generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
     print("Texto generado:", generated_text)
     chat.add_message("Assistant", generated_text)
-
 
 # Visualizar el historial del chat
 for speaker, message in chat.get_history():
