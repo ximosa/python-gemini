@@ -103,10 +103,16 @@ class Chat:
     def get_all_chats(self):
          self.cursor.execute("SELECT name, id FROM chats")
          return self.cursor.fetchall()
-    def get_history(self, chat_id):
-      self.cursor.execute(f"SELECT speaker, message FROM chat_{chat_id}")
+    def get_history_by_date(self, date):
+        self.cursor.execute("SELECT speaker, message FROM chat_history WHERE date LIKE ?", (f"{date}%",))
+        return self.cursor.fetchall()
+    def get_all_dates(self):
+        self.cursor.execute("SELECT DISTINCT date FROM chat_history")
+        dates = self.cursor.fetchall()
+        return [date[0].split(' ')[0] for date in dates]
+    def get_history(self):
+      self.cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
       return self.cursor.fetchall()
-
     def add_chat(self, name):
       now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
       self.cursor.execute("INSERT INTO chats (name, date) VALUES (?, ?)", (name, now))
@@ -116,13 +122,13 @@ class Chat:
 
     def close(self):
         self.conn.close()
-
     def delete_chat(self, id):
       self.cursor.execute(f"DROP TABLE IF EXISTS chat_{id}")
       self.cursor.execute("DELETE FROM chats WHERE id=?", (id,))
       self.conn.commit()
       st.session_state['selected_chat_id'] = None
       st.session_state['selected_chat_name'] = None
+
 
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
@@ -150,11 +156,13 @@ def generate_response(prompt, chat_history, custom_prompt):
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
 # Inicializamos el chat como un objeto
-chat = Chat()
+if 'chat' not in st.session_state:
+    st.session_state['chat'] = Chat()
+chat = st.session_state['chat']
+
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
 # --- Layout de la Interfaz ---
-
 
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:")
@@ -166,20 +174,43 @@ if user_input:
     generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
     print("Texto generado:", generated_text)
     chat.add_message("Assistant", generated_text)
-
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-             formatted_code = format_code(generated_text)
-             if formatted_code:
+            formatted_code = format_code(generated_text)
+            if formatted_code:
                 st.markdown(formatted_code, unsafe_allow_html=True)
-             else:
+            else:
                 st.write(generated_text)
         else:
             st.write(generated_text)
 
-# Visualizar el historial del chat
-for speaker, message in chat.get_history():
-   with st.chat_message(speaker.lower()):
-       st.write(message)
+
+with st.sidebar:
+    st.subheader("Historial del chat")
+    if st.button("Nuevo Chat"):
+      new_chat_name = f"Chat {len(chat.get_all_chats()) + 1}"
+      chat.add_chat(new_chat_name)
+      st.experimental_rerun()
+    chat_names = chat.get_all_chats()
+    if chat_names:
+        chat_names_dict = {name:id for name, id in chat_names }
+        selected_chat_name = st.selectbox("Selecciona un chat", chat_names_dict.keys(), index=list(chat_names_dict.keys()).index(st.session_state['selected_chat_name']))
+        st.session_state['selected_chat_id'] = chat_names_dict[selected_chat_name]
+        st.session_state['selected_chat_name'] = selected_chat_name
+        if st.button("Eliminar este chat", key="delete_chat_button"):
+            chat.delete_chat(st.session_state['selected_chat_id'])
+            st.experimental_rerun()
+    if 'selected_chat_id' in st.session_state:
+         history = chat.get_history(st.session_state['selected_chat_id'])
+         for speaker, message in history:
+           with st.chat_message(speaker.lower()):
+              if is_code(message):
+                  formatted_code = format_code(message)
+                  if formatted_code:
+                      st.markdown(formatted_code, unsafe_allow_html=True)
+                  else:
+                    st.write(message)
+              else:
+                st.write(message)
 chat.close()
