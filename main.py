@@ -96,34 +96,37 @@ class Chat:
     def get_history(self):
       self.cursor.execute("SELECT speaker, message FROM chat_history")
       return self.cursor.fetchall()
+
     def delete_message(self, id):
       self.cursor.execute("DELETE FROM chat_history WHERE id=?", (id,))
       self.conn.commit()
+
     def close(self):
         self.conn.close()
 
+
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
-    """Genera texto o código con el modelo Gemini, incluyendo el contexto de la conversación."""
-    try:
-        full_prompt = ""
-        for speaker, message in chat_history:
-            full_prompt += f"{speaker}: {message}\n"
-        full_prompt += f"Usuario: {prompt}\n"
-        full_prompt += f"{custom_prompt}\n"
-        print("Prompt generado:", full_prompt)
-        if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
-            response = code_model.generate_content(full_prompt)
-        else:
-            response = model.generate_content(full_prompt)
-        print("Respuesta API recibida:", response)
-        if response.text:
-            return response.text
-        else:
-            return "No se pudo generar respuesta."
-    except Exception as e:
-        print("Error en generate_response:", e)
-        return f"Ocurrió un error al interactuar con la API: {e}"
+  """Genera texto o código con el modelo Gemini, incluyendo el contexto de la conversación."""
+  try:
+    full_prompt = ""
+    for speaker, message in chat_history:
+        full_prompt += f"{speaker}: {message}\n"
+    full_prompt += f"Usuario: {prompt}\n"
+    full_prompt += f"{custom_prompt}\n"
+    print("Prompt generado:", full_prompt)
+    if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
+        response = code_model.generate_content(full_prompt)
+    else:
+        response = model.generate_content(full_prompt)
+    print("Respuesta API recibida:", response)
+    if response.text:
+        return response.text
+    else:
+        return "No se pudo generar respuesta."
+  except Exception as e:
+      print("Error en generate_response:", e)
+      return f"Ocurrió un error al interactuar con la API: {e}"
 
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
@@ -131,40 +134,45 @@ st.title("Chat con Gemini")
 chat = Chat()
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
-# --- Layout de la Interfaz ---
-col1, col2 = st.columns([3, 1])
 
-with col1:
-    # Área de entrada de texto
-    user_input = st.chat_input("Escribe tu mensaje aquí:")
 
-    # --- Lógica del chat ---
-    if user_input:
-        chat.add_message("Usuario", user_input)
-        # Generar respuesta con contexto
-        generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
-        print("Texto generado:", generated_text)
-        chat.add_message("Assistant", generated_text)
-        with st.chat_message("assistant"):
-             if is_code(generated_text):
-                formatted_code = format_code(generated_text)
-                if formatted_code:
-                    st.markdown(formatted_code, unsafe_allow_html=True)
-                else:
-                    st.write(generated_text)
-             else:
+# Área de entrada de texto
+user_input = st.chat_input("Escribe tu mensaje aquí:")
+
+# --- Lógica del chat ---
+if user_input:
+    chat.add_message("Usuario", user_input)
+    # Generar respuesta con contexto
+    generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
+    print("Texto generado:", generated_text)
+    chat.add_message("Assistant", generated_text)
+
+    # Mostrar la respuesta
+    with st.chat_message("assistant"):
+        if is_code(generated_text):
+            formatted_code = format_code(generated_text)
+            if formatted_code:
+                st.markdown(formatted_code, unsafe_allow_html=True)
+            else:
                 st.write(generated_text)
+        else:
+            st.write(generated_text)
 
-with col2:
-    st.subheader("Historial del chat")
-    dates = chat.get_all_dates()
-    selected_date = st.sidebar.selectbox("Selecciona una fecha:", dates) if dates else None
-    if selected_date:
+#Visualizar el historial del chat
+with st.expander("Mostrar historial"):
+   dates = chat.get_all_dates()
+   selected_date = st.sidebar.selectbox("Selecciona una fecha:", dates) if dates else None
+   if selected_date:
       history = chat.get_history_by_date(selected_date)
-      for id, (speaker, message) in enumerate(history):
+      for speaker, message in history:
          with st.chat_message(speaker.lower()):
-           st.write(message)
-           if st.button("Eliminar", key=f"delete_{id}"):
-            chat.delete_message(id+1)
-            st.experimental_rerun()
+            if is_code(message):
+               formatted_code = format_code(message)
+               if formatted_code:
+                    st.markdown(formatted_code, unsafe_allow_html=True)
+               else:
+                 st.write(message)
+            else:
+                st.write(message)
+
 chat.close()
