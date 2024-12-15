@@ -37,10 +37,6 @@ def generate_response(prompt, chat_history):
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
 
-# Visualizar el historial del chat
-for speaker, message in st.session_state['chat_history']:
-    with st.chat_message(speaker.lower()):
-        st.write(message)
 
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:")
@@ -53,9 +49,11 @@ if user_input:
     # Generar respuesta con contexto
     generated_text = generate_response(user_input, st.session_state['chat_history'])
     print("Texto generado:", generated_text)
-
-    # Mostrar la respuesta
-    with st.chat_message("assistant"):
-        st.write(generated_text)
     st.session_state['chat_history'].append(("Assistant", generated_text))
     print("Historial del chat actualizado:", st.session_state['chat_history'])
+
+
+# Visualizar el historial del chat
+for speaker, message in st.session_state['chat_history']:
+    with st.chat_message(speaker.lower()):
+        st.write(message)
