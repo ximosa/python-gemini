@@ -39,11 +39,12 @@ def generate_response(prompt, chat_history):
         for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
+        full_prompt += " Responde en el chat. Si te pido código, genera solo el código. No me pidas información personal\n"
         print("Prompt generado:", full_prompt)
-        if "genera" in prompt.lower() or "codigo" in prompt.lower() or "code" in prompt.lower():
-            response = code_model.generate_content(full_prompt)
+        if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
+           response = code_model.generate_content(full_prompt)
         else:
-            response = model.generate_content(full_prompt)
+           response = model.generate_content(full_prompt)
         print("Respuesta API recibida:", response)
         if response.text:
             return response.text
