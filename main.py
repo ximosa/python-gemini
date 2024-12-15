@@ -270,9 +270,9 @@ if user_input:
         if is_code(generated_text):
             formatted_code = format_code(generated_text)
             if formatted_code:
-              st.code(formatted_code, language = 'html')
+              st.markdown(formatted_code, unsafe_allow_html=True) #Mostramos el html formateado con markdown, para que se vea limpio
             else:
-              st.code(generated_text, language = None)
+              st.code(generated_text, language = None) #Mostramos el codigo en bruto con code si falla el formato
         else:
             st.write(generated_text)
 
@@ -282,9 +282,9 @@ for speaker, message in chat.get_history():
       if is_code(message):
         formatted_code = format_code(message)
         if formatted_code:
-            st.code(formatted_code, language = 'html')
+            st.markdown(formatted_code, unsafe_allow_html=True)  #Mostramos el html formateado con markdown, para que se vea limpio
         else:
-            st.code(message, language=None)
+           st.code(message, language=None) #Mostramos el codigo en bruto con code si falla el formato
       else:
         st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
