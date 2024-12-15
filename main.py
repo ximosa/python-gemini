@@ -65,7 +65,6 @@ def is_code(text):
         return True
     except:
         return False
-
 # --- Clase Chat ---
 class Chat:
     def __init__(self, db_path="chat_history.db"):
@@ -97,36 +96,31 @@ class Chat:
       self.cursor.execute("SELECT speaker, message FROM chat_history")
       return self.cursor.fetchall()
 
-    def delete_message(self, id):
-      self.cursor.execute("DELETE FROM chat_history WHERE id=?", (id,))
-      self.conn.commit()
-
     def close(self):
         self.conn.close()
 
-
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
-  """Genera texto o código con el modelo Gemini, incluyendo el contexto de la conversación."""
-  try:
-    full_prompt = ""
-    for speaker, message in chat_history:
-        full_prompt += f"{speaker}: {message}\n"
-    full_prompt += f"Usuario: {prompt}\n"
-    full_prompt += f"{custom_prompt}\n"
-    print("Prompt generado:", full_prompt)
-    if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
-        response = code_model.generate_content(full_prompt)
-    else:
-        response = model.generate_content(full_prompt)
-    print("Respuesta API recibida:", response)
-    if response.text:
-        return response.text
-    else:
-        return "No se pudo generar respuesta."
-  except Exception as e:
-      print("Error en generate_response:", e)
-      return f"Ocurrió un error al interactuar con la API: {e}"
+    """Genera texto o código con el modelo Gemini, incluyendo el contexto de la conversación."""
+    try:
+        full_prompt = ""
+        for speaker, message in chat_history:
+            full_prompt += f"{speaker}: {message}\n"
+        full_prompt += f"Usuario: {prompt}\n"
+        full_prompt += f"{custom_prompt}\n"
+        print("Prompt generado:", full_prompt)
+        if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
+            response = code_model.generate_content(full_prompt)
+        else:
+            response = model.generate_content(full_prompt)
+        print("Respuesta API recibida:", response)
+        if response.text:
+            return response.text
+        else:
+            return "No se pudo generar respuesta."
+    except Exception as e:
+        print("Error en generate_response:", e)
+        return f"Ocurrió un error al interactuar con la API: {e}"
 
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
@@ -134,6 +128,7 @@ st.title("Chat con Gemini")
 chat = Chat()
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
 st.session_state['custom_prompt'] = custom_prompt
+# --- Layout de la Interfaz ---
 
 
 # Área de entrada de texto
@@ -150,29 +145,16 @@ if user_input:
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-            formatted_code = format_code(generated_text)
-            if formatted_code:
+             formatted_code = format_code(generated_text)
+             if formatted_code:
                 st.markdown(formatted_code, unsafe_allow_html=True)
-            else:
+             else:
                 st.write(generated_text)
         else:
             st.write(generated_text)
 
-#Visualizar el historial del chat
-with st.expander("Mostrar historial"):
-   dates = chat.get_all_dates()
-   selected_date = st.sidebar.selectbox("Selecciona una fecha:", dates) if dates else None
-   if selected_date:
-      history = chat.get_history_by_date(selected_date)
-      for speaker, message in history:
-         with st.chat_message(speaker.lower()):
-            if is_code(message):
-               formatted_code = format_code(message)
-               if formatted_code:
-                    st.markdown(formatted_code, unsafe_allow_html=True)
-               else:
-                 st.write(message)
-            else:
-                st.write(message)
-
+# Visualizar el historial del chat
+for speaker, message in chat.get_history():
+   with st.chat_message(speaker.lower()):
+       st.write(message)
 chat.close()
