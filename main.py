@@ -1,6 +1,6 @@
-  import streamlit as st
-  import google.generativeai as genai
-  import os
+import streamlit as st
+import google.generativeai as genai
+import os
 
   # --- Configuración de la API ---
   API_KEY = st.secrets["API_KEY"]
