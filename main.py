@@ -39,7 +39,6 @@ def generate_response(prompt, chat_history):
         for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
-        full_prompt += " Responde en el chat. Si te pido código, genera solo el código. No me pidas información personal\n"
         print("Prompt generado:", full_prompt)
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
            response = code_model.generate_content(full_prompt)
@@ -72,18 +71,6 @@ def is_code(text):
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
 
-# Visualizar el historial del chat
-for speaker, message in st.session_state['chat_history']:
-    with st.chat_message(speaker.lower()):
-        if is_code(message):
-            formatted_code = format_code(message)
-            if formatted_code:
-                st.markdown(formatted_code, unsafe_allow_html=True)
-            else:
-                st.write(message)
-        else:
-            st.write(message)
-
 # Área de entrada de texto
 user_input = st.chat_input("Escribe tu mensaje aquí:")
 
@@ -94,5 +81,29 @@ if user_input:
     # Generar respuesta con contexto
     generated_text = generate_response(user_input, st.session_state['chat_history'])
     print("Texto generado:", generated_text)
+
+     # Mostrar la respuesta
+    with st.chat_message("assistant"):
+      if is_code(generated_text):
+           formatted_code = format_code(generated_text)
+           if formatted_code:
+              st.markdown(formatted_code, unsafe_allow_html=True)
+           else:
+              st.write(generated_text)
+      else:
+           st.write(generated_text)
     st.session_state['chat_history'].append(("Assistant", generated_text))
     print("Historial del chat actualizado:", st.session_state['chat_history'])
+
+
+# Visualizar el historial del chat
+for speaker, message in st.session_state['chat_history']:
+  with st.chat_message(speaker.lower()):
+     if is_code(message):
+        formatted_code = format_code(message)
+        if formatted_code:
+          st.markdown(formatted_code, unsafe_allow_html=True)
+        else:
+          st.write(message)
+     else:
+          st.write(message)
