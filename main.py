@@ -1,5 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
+import os
 
 # --- Configuración de la API ---
 API_KEY = st.secrets["API_KEY"]
@@ -13,13 +14,14 @@ model = genai.GenerativeModel('gemini-pro')
 if 'chat_history' not in st.session_state:
     st.session_state['chat_history'] = []
 
+
 # --- Función para generar código con contexto ---
-def generate_code_with_context(prompt, chat_history):
-    """Genera código con el modelo Gemini, incluyendo el contexto de la conversación."""
+def generate_response(prompt, chat_history):
+    """Genera texto con el modelo Gemini, incluyendo el contexto de la conversación."""
     try:
         full_prompt = ""
-        for message in chat_history:
-            full_prompt += f"Usuario: {message}\n"
+        for speaker, message in chat_history:
+            full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
         print("Prompt generado:", full_prompt)
         response = model.generate_content(full_prompt)
@@ -27,33 +29,33 @@ def generate_code_with_context(prompt, chat_history):
         if response.text:
             return response.text
         else:
-            return "No se pudo generar código."
+            return "No se pudo generar respuesta."
     except Exception as e:
-        print("Error en generate_code_with_context:", e)
+        print("Error en generate_response:", e)
         return f"Ocurrió un error al interactuar con la API: {e}"
 
 # --- Interfaz de Streamlit ---
-st.title("Chat de Código con Gemini")
+st.title("Chat con Gemini")
 
 # Visualizar el historial del chat
-for message in st.session_state['chat_history']:
-    with st.chat_message("user"):
+for speaker, message in st.session_state['chat_history']:
+    with st.chat_message(speaker.lower()):
         st.write(message)
 
 # Área de entrada de texto
-user_input = st.chat_input("Escribe tu solicitud de código aquí:")
+user_input = st.chat_input("Escribe tu mensaje aquí:")
+
 
 # --- Lógica del chat ---
 if user_input:
-    st.session_state['chat_history'].append(user_input)
+    st.session_state['chat_history'].append(("Usuario", user_input))
     print("Historial del chat actualizado:", st.session_state['chat_history'])
-    # Generar código con contexto
-    generated_text = generate_code_with_context(user_input, st.session_state['chat_history'])
+    # Generar respuesta con contexto
+    generated_text = generate_response(user_input, st.session_state['chat_history'])
     print("Texto generado:", generated_text)
 
-    # Mostrar el código o mensaje de respuesta
+    # Mostrar la respuesta
     with st.chat_message("assistant"):
-        if generated_text:
-            st.code(generated_text, language="python")
-        else:
-            st.write(generated_text)
+        st.write(generated_text)
+    st.session_state['chat_history'].append(("Assistant", generated_text))
+    print("Historial del chat actualizado:", st.session_state['chat_history'])
