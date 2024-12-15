@@ -6,7 +6,6 @@ from pygments import highlight
 from pygments.lexers import get_lexer_by_name, guess_lexer
 from pygments.formatters import HtmlFormatter
 from datetime import datetime
-import pyperclip
 
 # --- Configuración de la API ---
 API_KEY = st.secrets["API_KEY"]
@@ -269,15 +268,11 @@ if user_input:
     # Mostrar la respuesta
     with st.chat_message("assistant"):
         if is_code(generated_text):
-             formatted_code = format_code(generated_text)
-             if formatted_code:
-                 st.markdown(formatted_code, unsafe_allow_html=True)
-             else:
-                st.code(generated_text, language=None)
-                if st.button("Copiar", key=f"copy_{st.session_state['selected_chat_id']}"):
-                    pyperclip.copy(generated_text)
-                    st.success("Código copiado al portapapeles!", icon="✅")
-                
+            formatted_code = format_code(generated_text)
+            if formatted_code:
+              st.code(formatted_code, language = 'html')
+            else:
+              st.code(generated_text, language = None)
         else:
             st.write(generated_text)
 
@@ -285,14 +280,11 @@ if user_input:
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
       if is_code(message):
-          formatted_code = format_code(message)
-          if formatted_code:
-            st.markdown(formatted_code, unsafe_allow_html=True)
-          else:
+        formatted_code = format_code(message)
+        if formatted_code:
+            st.code(formatted_code, language = 'html')
+        else:
             st.code(message, language=None)
-            if st.button("Copiar", key=f"copy_historial{message}"):
-               pyperclip.copy(message)
-               st.success("Código copiado al portapapeles!", icon="✅")
       else:
         st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
