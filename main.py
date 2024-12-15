@@ -270,7 +270,7 @@ if user_input:
         if is_code(generated_text):
              formatted_code = format_code(generated_text)
              if formatted_code:
-                st.markdown(formatted_code, unsafe_allow_html=True)
+                st.markdown(formatted_code, unsafe_allow_html=True, ) #Renderiza el HTML de forma segura
              else:
                 st.write(generated_text)
         else:
@@ -279,6 +279,13 @@ if user_input:
 # Visualizar el historial del chat
 for speaker, message in chat.get_history():
    with st.chat_message(speaker.lower()):
-       st.write(message)
+      if is_code(message):
+          formatted_code = format_code(message)
+          if formatted_code:
+            st.markdown(formatted_code, unsafe_allow_html=True) #Renderiza el HTML de forma segura en el historial
+          else:
+            st.write(message)
+      else:
+        st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
   st.header(f"Chat: {st.session_state['selected_chat_name']}")
