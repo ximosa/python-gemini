@@ -1,6 +1,9 @@
 import streamlit as st
 import google.generativeai as genai
 import os
+from pygments import highlight
+from pygments.lexers import get_lexer_by_name, guess_lexer
+from pygments.formatters import HtmlFormatter
 
 # --- Configuración de la API ---
 API_KEY = st.secrets["API_KEY"]
@@ -64,7 +67,7 @@ class Chat:
 
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history, custom_prompt):
-  """Genera texto con el modelo Gemini, incluyendo el contexto de la conversación."""
+  """Genera texto o código con el modelo Gemini, incluyendo el contexto de la conversación."""
   try:
     full_prompt = ""
     for speaker, message in chat_history:
@@ -85,6 +88,20 @@ def generate_response(prompt, chat_history, custom_prompt):
       print("Error en generate_response:", e)
       return f"Ocurrió un error al interactuar con la API: {e}"
 
+def format_code(text):
+    try:
+        lexer = guess_lexer(text)
+        formatter = HtmlFormatter()
+        return highlight(text, lexer, formatter)
+    except:
+        return None
+
+def is_code(text):
+    try:
+        guess_lexer(text)
+        return True
+    except:
+        return False
 
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
@@ -108,9 +125,11 @@ with col1:
         generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
         print("Texto generado:", generated_text)
         chat.add_message("Assistant", generated_text)
-    with st.chat_message("assistant"):
-      st.write(generated_text)
-
+        with st.chat_message("assistant"):
+            if generated_text:
+               st.write(generated_text)
+            else:
+               st.write("No se generó ninguna respuesta.")
 
 with col2:
   st.subheader("Historial del chat")
