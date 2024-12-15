@@ -17,6 +17,10 @@ genai.configure(api_key=API_KEY)
 available_models = genai.list_models()
 model_options = [m.name for m in available_models if 'generateContent' in m.supported_generation_methods]
 
+# Filtrar modelos no disponibles
+model_options = [m for m in model_options if 'gemini-1.0-pro-latest' not in m]
+
+
 if 'selected_model' not in st.session_state:
     if 'gemini-pro' in model_options:
       st.session_state['selected_model'] = 'gemini-pro'
@@ -32,7 +36,7 @@ try:
 except Exception as e:
     st.error(f"Ocurrió un error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
     selected_model_name = model_options[0]
-    st.session_state['selected_model'] = selected_model_name
+    st.session_state['selected_model'] = model_options[0]
 
 model = genai.GenerativeModel(selected_model_name)
 
