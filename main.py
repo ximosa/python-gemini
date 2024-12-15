@@ -273,7 +273,7 @@ if user_input:
                 language = lexer.name
             except:
                 language = None
-            st.code(generated_text.strip(), language=language)  #Eliminamos los saltos de linea
+            st.code(generated_text, language=language) #Mostrar codigo con st.code, pero sin formatear.
         else:
             st.write(generated_text)
 
@@ -286,7 +286,7 @@ for speaker, message in chat.get_history():
             language = lexer.name
          except:
             language = None
-         st.code(message.strip(), language=language) #Eliminamos los saltos de linea
+         st.code(message, language=language) #Mostrar codigo con st.code, pero sin formatear.
       else:
         st.write(message)
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
