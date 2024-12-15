@@ -13,12 +13,23 @@ available_models = genai.list_models()
 model_options = [m.name for m in available_models if 'generateContent' in m.supported_generation_methods]
 
 if 'selected_model' not in st.session_state:
-   st.session_state['selected_model'] = 'gemini-pro'
+  if 'gemini-pro' in model_options:
+        st.session_state['selected_model'] = 'gemini-pro'
+  elif model_options:
+        st.session_state['selected_model'] = model_options[0] # Usar el primer elemento si no existe gemini-pro
+  else:
+    st.error("No se encontró ningún modelo válido")
+    st.stop()
 
-selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model']))
-st.session_state['selected_model'] = selected_model_name
+try:
+  selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model']))
+  st.session_state['selected_model'] = selected_model_name
+except Exception as e:
+  st.error(f"Ocurrió un error al seleccionar el modelo: {e}")
+  st.stop()
 
 model = genai.GenerativeModel(selected_model_name)
+
 
 code_model_name = None
 for m in available_models:
