@@ -12,27 +12,22 @@ genai.configure(api_key=API_KEY)
 available_models = genai.list_models()
 model_options = [m.name for m in available_models if 'generateContent' in m.supported_generation_methods]
 
-if not model_options:
-   st.error("No se encontró ningún modelo válido para la API")
-   st.stop()
-else:
-   print(f"Lista de modelos disponibles: {model_options}")
-
 if 'selected_model' not in st.session_state:
     if 'gemini-pro' in model_options:
       st.session_state['selected_model'] = 'gemini-pro'
+    elif model_options:
+      st.session_state['selected_model'] = model_options[0]
     else:
-        st.session_state['selected_model'] = model_options[0]
-
+        st.error("No se encontró ningún modelo válido para la API")
+        st.stop()
 
 try:
     selected_model_name = st.selectbox("Selecciona un modelo:", model_options, index = model_options.index(st.session_state['selected_model']))
     st.session_state['selected_model'] = selected_model_name
 except Exception as e:
-    st.error(f"Error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
+    st.error(f"Ocurrió un error al seleccionar el modelo: {e}. Seleccionando modelo por defecto: {model_options[0]}")
     selected_model_name = model_options[0]
     st.session_state['selected_model'] = selected_model_name
-
 
 model = genai.GenerativeModel(selected_model_name)
 
@@ -90,6 +85,7 @@ def generate_response(prompt, chat_history, custom_prompt):
       print("Error en generate_response:", e)
       return f"Ocurrió un error al interactuar con la API: {e}"
 
+
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
 # Inicializamos el chat como un objeto
@@ -97,18 +93,28 @@ chat = Chat()
 
 custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state['custom_prompt'])
 st.session_state['custom_prompt'] = custom_prompt
-# Área de entrada de texto
-user_input = st.chat_input("Escribe tu mensaje aquí:")
 
-# --- Lógica del chat ---
-if user_input:
-    chat.add_message("Usuario", user_input)
-    # Generar respuesta con contexto
-    generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
-    print("Texto generado:", generated_text)
-    chat.add_message("Assistant", generated_text)
 
-# Visualizar el historial del chat
-for speaker, message in chat.get_history():
-    with st.chat_message(speaker.lower()):
-        st.write(message)
+col1, col2 = st.columns([3, 1])
+
+with col1:
+    # Área de entrada de texto
+    user_input = st.chat_input("Escribe tu mensaje aquí:")
+
+    # --- Lógica del chat ---
+    if user_input:
+        chat.add_message("Usuario", user_input)
+        # Generar respuesta con contexto
+        generated_text = generate_response(user_input, chat.get_history(), custom_prompt)
+        print("Texto generado:", generated_text)
+        chat.add_message("Assistant", generated_text)
+    with st.chat_message("assistant"):
+      st.write(generated_text)
+
+
+with col2:
+  st.subheader("Historial del chat")
+  # Visualizar el historial del chat
+  for speaker, message in chat.get_history():
+      with st.chat_message(speaker.lower()):
+          st.write(message)
