@@ -211,14 +211,12 @@ class Chat:
             conn.close()
 
 # --- Función para generar respuesta ---
-def generate_response(prompt, chat_history, custom_prompt):
+def generate_response(prompt, chat_history):
     try:
         full_prompt = ""
         for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
-        if custom_prompt:
-            full_prompt += f"Instrucciones: {custom_prompt}\n"
         print("Prompt generado:", full_prompt)
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
@@ -241,21 +239,21 @@ if 'chat' not in st.session_state:
     st.session_state['chat'] = Chat()
 chat = st.session_state['chat']
 
-custom_prompt = st.text_area("Instrucciones adicionales para la IA (opcional):", value = st.session_state.get('custom_prompt',""))
-st.session_state['custom_prompt'] = custom_prompt
-
 # --- Layout de la interfaz ---
 with st.sidebar:
     st.header("Chats")
     all_chats = chat.get_all_chats()
     if all_chats:
         for chat_name, chat_id in all_chats:
-            if st.button(chat_name, key=f"chat_{chat_id}"):
-                st.session_state['selected_chat_id'] = chat_id
-                st.session_state['selected_chat_name'] = chat_name
-            if st.button(f"Eliminar {chat_name}", key=f"delete_{chat_id}"):
-                chat.delete_chat(chat_id)
-                st.rerun()
+            col1, col2 = st.columns([0.8, 0.2])
+            with col1:
+                if st.button(chat_name, key=f"chat_{chat_id}", use_container_width=True):
+                    st.session_state['selected_chat_id'] = chat_id
+                    st.session_state['selected_chat_name'] = chat_name
+            with col2:
+                if st.button("🗑️", key=f"delete_{chat_id}", use_container_width=True):
+                    chat.delete_chat(chat_id)
+                    st.rerun()
         if st.button("Nuevo Chat"):
             st.session_state['creating_new_chat'] = True
     else:
@@ -271,7 +269,7 @@ if user_input:
         chat.create_chat_with_first_message(user_input)
         st.session_state['creating_new_chat'] = False
     chat.add_message("Usuario", user_input)
-    generated_text = generate_response(user_input, chat.get_history(), st.session_state['custom_prompt'])
+    generated_text = generate_response(user_input, chat.get_history())
     chat.add_message("Assistant", generated_text)
     print("Texto generado:", generated_text)
 
