@@ -316,12 +316,12 @@ with st.sidebar:
         if st.button("Nuevo Chat"):
              st.session_state['creating_new_chat'] = True
 
-# Área de entrada de texto
+# Área de entrada de texto con selector de archivos en la misma línea
 col1, col2 = st.columns([0.8, 0.2])
 with col1:
     user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 with col2:
-   uploaded_file = st.file_uploader("Cargar archivo", type=['pdf', 'txt', 'csv', 'docx','xlsx'], key=f'file_uploader_{st.session_state.get("selected_chat_id", 0)}')
+    uploaded_file = st.file_uploader("Cargar archivo", type=['pdf', 'txt', 'csv', 'docx','xlsx'], key=f'file_uploader_{st.session_state.get("selected_chat_id", 0)}', label_visibility="hidden")
 
 # Lógica del chat
 if user_input or uploaded_file:
@@ -368,7 +368,6 @@ for speaker, message, file_data, file_name in chat.get_history():  # Modificado 
                     )
                  except Exception as e:
                      st.write(f"Error al cargar archivo para descargar: {e}")
-
 
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
     st.header(f"Chat: {st.session_state['selected_chat_name']}")
