@@ -2,8 +2,6 @@ import streamlit as st
 import google.generativeai as genai
 import sqlite3
 from datetime import datetime
-import os
-import uuid
 
 # --- Configuración de la API ---
 API_KEY = st.secrets.get("API_KEY")
@@ -57,10 +55,8 @@ else:
 
 # --- Clase Chat ---
 class Chat:
-    def __init__(self, db_path="chat_history.db", upload_dir="uploads"):
+    def __init__(self, db_path="chat_history.db"):
         self.db_path = db_path
-        self.upload_dir = upload_dir
-        os.makedirs(self.upload_dir, exist_ok=True)
         self._create_main_table()
         self._initialize_chat()
 
@@ -113,8 +109,7 @@ class Chat:
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                                     date TEXT,
                                     speaker TEXT,
-                                    message TEXT,
-                                    file_path TEXT
+                                    message TEXT
                                     )""")
             conn.commit()
         except sqlite3.Error as e:
@@ -124,12 +119,12 @@ class Chat:
             conn.close()
 
 
-    def add_message(self, speaker, message, file_path=None):
+    def add_message(self, speaker, message):
         conn = self._get_connection()
         cursor = conn.cursor()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message, file_path) VALUES (?, ?, ?, ?)", (now, speaker, message, file_path))
+            cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
             conn.commit()
         except sqlite3.Error as e:
             st.error(f"Error al añadir el mensaje: {e}")
@@ -156,24 +151,12 @@ class Chat:
         conn = self._get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute(f"SELECT id, speaker, message, file_path FROM chat_{st.session_state['selected_chat_id']}")
+            cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
             history = cursor.fetchall()
             return history
         except sqlite3.Error as e:
             st.error(f"Error al obtener el historial del chat: {e}")
             return []
-        finally:
-            conn.close()
-    
-    def delete_message(self, message_id):
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(f"DELETE FROM chat_{st.session_state['selected_chat_id']} WHERE id=?", (message_id,))
-            conn.commit()
-        except sqlite3.Error as e:
-            st.error(f"Error al eliminar el mensaje: {e}")
-            conn.rollback()
         finally:
             conn.close()
 
@@ -226,22 +209,12 @@ class Chat:
             conn.rollback()
         finally:
             conn.close()
-    
-    def upload_file(self, uploaded_file):
-        if uploaded_file:
-            file_extension = os.path.splitext(uploaded_file.name)[1]
-            file_name = f"{uuid.uuid4()}{file_extension}"
-            file_path = os.path.join(self.upload_dir, file_name)
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.read())
-            return file_path
-        return None
 
 # --- Función para generar respuesta ---
 def generate_response(prompt, chat_history):
     try:
         full_prompt = ""
-        for _, speaker, message, _ in chat_history:
+        for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
         print("Prompt generado:", full_prompt)
@@ -287,20 +260,15 @@ with st.sidebar:
         if st.button("Nuevo Chat"):
              st.session_state['creating_new_chat'] = True
 
-# Área de entrada de texto y adjuntos
-col1, col2 = st.columns([0.8, 0.2])
-with col1:
-    user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
-with col2:
-    uploaded_file = st.file_uploader("Adjuntar archivo", key=f'file_uploader_{st.session_state.get("selected_chat_id", 0)}')
+# Área de entrada de texto
+user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
 # Lógica del chat
-if user_input or uploaded_file:
-    file_path = chat.upload_file(uploaded_file)
+if user_input:
     if st.session_state.get('creating_new_chat', False):
         chat.create_chat_with_first_message(user_input)
         st.session_state['creating_new_chat'] = False
-    chat.add_message("Usuario", user_input, file_path)
+    chat.add_message("Usuario", user_input)
     generated_text = generate_response(user_input, chat.get_history())
     chat.add_message("Assistant", generated_text)
     print("Texto generado:", generated_text)
@@ -311,16 +279,9 @@ if user_input or uploaded_file:
 
 
 # Mostrar el historial del chat
-for message_id, speaker, message, file_path in chat.get_history():
+for speaker, message in chat.get_history():
     with st.chat_message(speaker):
-        if message:
-            st.write(message)
-        if file_path:
-            st.markdown(f'<a href="{file_path}" download>Descargar archivo adjunto</a>', unsafe_allow_html=True)
-        if speaker == "Usuario":
-            if st.button("Eliminar", key=f"delete_message_{message_id}", use_container_width=True):
-                chat.delete_message(message_id)
-                st.rerun()
+        st.write(message)
 
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
     st.header(f"Chat: {st.session_state['selected_chat_name']}")
