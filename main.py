@@ -16,9 +16,9 @@ model_options = [
     m.name for m in available_models
     if 'generateContent' in m.supported_generation_methods
     and 'deprecated' not in m.name.lower()
+    and not m.name.lower().endswith('-latest')
     and m.name not in ['gemini-pro-vision'] #Excluir gemini-pro-vision por que no funciona en chat
 ]
-
 
 if 'selected_model' not in st.session_state:
     if 'gemini-pro' in model_options:
@@ -217,7 +217,8 @@ def generate_response(prompt, chat_history, custom_prompt):
         for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
         full_prompt += f"Usuario: {prompt}\n"
-        full_prompt += " Si te pido código, genera solo el código, y delimítalo usando ```html para HTML, ```python para Python etc. \n"
+        if custom_prompt:
+            full_prompt += f"Instrucciones: {custom_prompt}\n"
         print("Prompt generado:", full_prompt)
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
