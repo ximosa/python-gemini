@@ -2,8 +2,6 @@ import streamlit as st
 import google.generativeai as genai
 import sqlite3
 from datetime import datetime
-import io
-import os  # Importar el módulo os
 
 # --- Configuración de la API ---
 API_KEY = st.secrets.get("API_KEY")
@@ -111,9 +109,7 @@ class Chat:
                                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                                     date TEXT,
                                     speaker TEXT,
-                                    message TEXT,
-                                    file_data BLOB,  -- Para almacenar datos del archivo
-                                    file_name TEXT   -- Para almacenar el nombre del archivo
+                                    message TEXT
                                     )""")
             conn.commit()
         except sqlite3.Error as e:
@@ -122,12 +118,13 @@ class Chat:
         finally:
             conn.close()
 
-    def add_message(self, speaker, message, file_data=None, file_name=None):
+
+    def add_message(self, speaker, message):
         conn = self._get_connection()
         cursor = conn.cursor()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message, file_data, file_name) VALUES (?, ?, ?, ?, ?)", (now, speaker, message, file_data, file_name))
+            cursor.execute(f"INSERT INTO chat_{st.session_state['selected_chat_id']} (date, speaker, message) VALUES (?, ?, ?)", (now, speaker, message))
             conn.commit()
         except sqlite3.Error as e:
             st.error(f"Error al añadir el mensaje: {e}")
@@ -149,19 +146,19 @@ class Chat:
             conn.close()
 
     def get_history(self):
-      if not st.session_state.get('selected_chat_id'):
-          return []
-      conn = self._get_connection()
-      cursor = conn.cursor()
-      try:
-          cursor.execute(f"SELECT speaker, message, file_data, file_name FROM chat_{st.session_state['selected_chat_id']}")
-          history = cursor.fetchall()
-          return history
-      except sqlite3.Error as e:
-          st.error(f"Error al obtener el historial del chat: {e}")
-          return []
-      finally:
-          conn.close()
+        if not st.session_state.get('selected_chat_id'):
+            return []
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"SELECT speaker, message FROM chat_{st.session_state['selected_chat_id']}")
+            history = cursor.fetchall()
+            return history
+        except sqlite3.Error as e:
+            st.error(f"Error al obtener el historial del chat: {e}")
+            return []
+        finally:
+            conn.close()
 
     def add_chat(self, name):
         conn = self._get_connection()
@@ -197,6 +194,7 @@ class Chat:
         finally:
             conn.close()
 
+
     def delete_chat(self, id):
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -212,31 +210,13 @@ class Chat:
         finally:
             conn.close()
 
-
 # --- Función para generar respuesta ---
-def generate_response(prompt, chat_history, uploaded_file=None):
+def generate_response(prompt, chat_history):
     try:
         full_prompt = ""
-        for speaker, message, file_data, file_name in chat_history:  # Se añade file_data y file_name
+        for speaker, message in chat_history:
             full_prompt += f"{speaker}: {message}\n"
-            if file_name:
-                full_prompt += f"{speaker}: Archivo adjunto: {file_name}\n"
-        
-        if uploaded_file:
-             file_name = uploaded_file.name
-             file_data = uploaded_file.read()
-             # Agrega información del archivo al prompt
-             full_prompt += f"Usuario: Archivo adjunto: {file_name}\n"
-
-             if file_name.lower().endswith(('.pdf', '.txt', '.csv', '.docx','.xlsx')):
-                 try:
-                     file_content = read_file_content(file_data,file_name)  # leer el contenido basado en la extensión
-                     full_prompt += f"Usuario: Contenido del archivo: {file_content[:1000]}...\n"  # Limitar para que no sea demasiado extenso
-                 except Exception as e:
-                     print(f"Error al leer el contenido del archivo: {e}")
-                     full_prompt += "Usuario: No se pudo procesar el archivo.\n"
         full_prompt += f"Usuario: {prompt}\n"
-
         print("Prompt generado:", full_prompt)
         if prompt.lower().startswith("genera código") or prompt.lower().startswith("code"):
             response = code_model.generate_content(full_prompt)
@@ -250,42 +230,6 @@ def generate_response(prompt, chat_history, uploaded_file=None):
     except Exception as e:
         print("Error en generate_response:", e)
         return f"Ocurrió un error al interactuar con la API: {e}"
-
-def read_file_content(file_data, file_name):
-  
-    try:
-        if file_name.lower().endswith('.txt'):
-            return io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8').read()
-        elif file_name.lower().endswith('.pdf'):
-            import pypdf
-            pdf_reader = pypdf.PdfReader(io.BytesIO(file_data))
-            text = ""
-            for page_num in range(len(pdf_reader.pages)):
-                text += pdf_reader.pages[page_num].extract_text()
-            return text
-        elif file_name.lower().endswith('.csv'):
-            import pandas as pd
-            df = pd.read_csv(io.BytesIO(file_data))
-            return df.to_string()
-        elif file_name.lower().endswith('.docx'):
-            import docx
-            doc = docx.Document(io.BytesIO(file_data))
-            text = '\n'.join([paragraph.text for paragraph in doc.paragraphs])
-            return text
-        elif file_name.lower().endswith('.xlsx'):
-            import pandas as pd
-            excel_file = pd.ExcelFile(io.BytesIO(file_data))
-            all_sheets_text = ""
-            for sheet_name in excel_file.sheet_names:
-              df = excel_file.parse(sheet_name)
-              all_sheets_text+= f"Hoja: {sheet_name} \n {df.to_string()} \n"
-            return all_sheets_text
-        else:
-            return "Formato de archivo no compatible."
-    except Exception as e:
-       print(f"Error al leer el archivo: {e}")
-       return f"Error al procesar el archivo: {e}"
-
 
 # --- Interfaz de Streamlit ---
 st.title("Chat con Gemini")
@@ -316,33 +260,16 @@ with st.sidebar:
         if st.button("Nuevo Chat"):
              st.session_state['creating_new_chat'] = True
 
-# Área de entrada de texto con selector de archivos en la misma línea
-col1, col2 = st.columns([0.8, 0.2])
-with col1:
-    user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
-with col2:
-    uploaded_file = st.file_uploader("Cargar archivo", type=['pdf', 'txt', 'csv', 'docx','xlsx'], key=f'file_uploader_{st.session_state.get("selected_chat_id", 0)}', label_visibility="hidden")
+# Área de entrada de texto
+user_input = st.chat_input("Escribe tu mensaje aquí:", key=f'chat_input_{st.session_state.get("selected_chat_id", 0)}')
 
 # Lógica del chat
-if user_input or uploaded_file:
+if user_input:
     if st.session_state.get('creating_new_chat', False):
-      if user_input:
         chat.create_chat_with_first_message(user_input)
-      elif uploaded_file:
-        chat.create_chat_with_first_message(f"Archivo subido: {uploaded_file.name}") #Crea el chat con el nombre del archivo si no hay pregunta
-      st.session_state['creating_new_chat'] = False
-
-    
-    if user_input:
-      chat.add_message("Usuario", user_input, file_data=None, file_name=None) #Guardar mensaje del usuario sin archivos adjuntos
-      generated_text = generate_response(user_input, chat.get_history(), uploaded_file)
-    elif uploaded_file:
-      chat.add_message("Usuario", f"Archivo subido: {uploaded_file.name}", file_data=uploaded_file.read(), file_name=uploaded_file.name) #Guardar el archivo subido
-      generated_text = generate_response(f"Procesar archivo: {uploaded_file.name}", chat.get_history(), uploaded_file)
-    else:
-      generated_text = "No se recibió mensaje o archivo adjunto."
-
-
+        st.session_state['creating_new_chat'] = False
+    chat.add_message("Usuario", user_input)
+    generated_text = generate_response(user_input, chat.get_history())
     chat.add_message("Assistant", generated_text)
     print("Texto generado:", generated_text)
 
@@ -352,22 +279,9 @@ if user_input or uploaded_file:
 
 
 # Mostrar el historial del chat
-for speaker, message, file_data, file_name in chat.get_history():  # Modificado para obtener file_data y file_name
+for speaker, message in chat.get_history():
     with st.chat_message(speaker):
-      st.write(message)  
-      if file_name:
-           st.write(f"Archivo adjunto: {file_name}")
-           if file_data:
-            if file_name.lower().endswith(('.pdf', '.txt', '.csv', '.docx','.xlsx')):
-                 try:
-                    st.download_button(
-                     label="Descargar archivo",
-                     data=file_data,
-                     file_name=file_name,
-                     key=f"download_{file_name}"
-                    )
-                 except Exception as e:
-                     st.write(f"Error al cargar archivo para descargar: {e}")
+        st.write(message)
 
 if st.session_state['selected_chat_id'] is not None and st.session_state['selected_chat_name']:
     st.header(f"Chat: {st.session_state['selected_chat_name']}")
